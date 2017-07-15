@@ -1,7 +1,6 @@
 source('clean_data.R')
 
 englishCorpus <- getCorpus('en_US')
-#englishCorpus <- tm_map(englishCorpus, stripWhitespace)
 
 ### 3
 getLongestLineLength <- function(corpus, document){
