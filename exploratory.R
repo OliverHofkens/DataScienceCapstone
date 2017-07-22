@@ -26,7 +26,7 @@ textplot_wordcloud(featuresNoStop, min.freq = 50000, random.order = FALSE,
                    colors = RColorBrewer::brewer.pal(8,"Dark2"))
 rm(featuresNoStop)
 
-# Checking out bi-grams
+# Checking out bi-grams:
 bigrams <- tokens(corp, ngrams = 2)
 featuresBiGrams <- dfm(bigrams) 
 topfeatures(featuresBiGrams, 100)
@@ -34,7 +34,7 @@ topfeatures(featuresBiGrams, 100)
 rm(bigrams)
 rm(featuresBiGrams)
 
-# Checking out tri-grams
+# Checking out tri-grams:
 trigrams <- tokens(corp, ngrams = 3)
 featuresTriGrams <- dfm(trigrams)
 topfeatures(featuresTriGrams, 100)
