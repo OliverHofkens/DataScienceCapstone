@@ -30,6 +30,15 @@ makeAttnCell <- function(is_training){
     cell
 }
 
-# Layer multiple RNN cells:
-cellLayers <- tf$contrib$rnn$MultiRNNCell(replicate(num_layers, makeAttnCell))
+# Layer multiple RNN cells together
+makeLayeredCells <- function(is_training){
+    cellLayers <<- tf$contrib$rnn$MultiRNNCell(replicate(num_layers, makeAttnCell(is_training)))
+    initialState <<- cellLayers$zero_state(batch_size, tf$float32)
+}
 
+makeLayeredCells(TRUE)
+
+# Create the embedding variable
+embedding <- tf$get_variable("embedding", shape = c(vocab_size, hidden_size), dtype = tf$float32)
+# Lookup inputs:
+inputs <- tf$nn$embedding_lookup(embedding, input_.input_data)
