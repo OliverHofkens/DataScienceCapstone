@@ -1,6 +1,6 @@
 library(tensorflow)
 
-model <- function(){
+languageModel <- function(){
     # Adjustable parameters:
     init_scale <- 0.1
     learning_rate <- 1.0
@@ -14,6 +14,12 @@ model <- function(){
     lr_decay <- 0.5
     batch_size <- 20
     vocab_size <- 10000
+    
+    cellLayers <- 0L
+    initialState <- 0L
+    
+    cost <- 0L
+    learningRate <- 0L
     
     # Create an LSTM cell;
     makeLstmCell <- function(){
@@ -41,7 +47,7 @@ model <- function(){
         makeLayeredCells(TRUE)
         
         # Create the embedding variable
-        embedding <- tf$get_variable("embedding", shape = c(vocab_size, hidden_size), dtype = tf$float32)
+        embedding <- tf$get_variable("embedding", shape = shape(vocab_size, hidden_size), dtype = tf$float32)
         # Lookup inputs:
         inputs <- tf$nn$embedding_lookup(embedding, data)
         
@@ -49,12 +55,12 @@ model <- function(){
             inputs = tf$nn$dropout(inputs, keep_prob)
         }
            
-        outputs = c()
-        state = initalState
+        outputs <- c()
+        state <- initialState
         
         with(tf$variable_scope("RNN"), {
-            for(time_step in seq(0, num_steps)){
-                if(time_step > 0){
+            for(time_step in seq(0L, num_steps)){
+                if(time_step > 0L){
                     tf$get_variable_scope()$reuse_variables()
                 } 
                 results = cellLayers(inputs[, time_step, ], state)
@@ -63,7 +69,7 @@ model <- function(){
             }
         })
         
-        output = tf$reshape(tf$stack(axis=1, values=outputs), c(-1, size))
+        output = tf$reshape(tf$stack(axis=1, values=outputs), c(-1L, size))
         softmax_w = tf$get_variable("softmax_w", c(size, vocab_size), dtype=tf$float32)
         softmax_b = tf$get_variable("softmax_b", c(vocab_size), dtype=tf$float32)
         logits = tf$matmul(output, softmax_w) + softmax_b
@@ -90,12 +96,14 @@ model <- function(){
         
         lr = tf$Variable(0.0, trainable=FALSE)
         tvars = tf$trainable_variables()
-        grads, _ = tf$clip_by_global_norm(tf$gradients(cost, tvars), max_grad_norm)
+        grads = tf$clip_by_global_norm(tf$gradients(cost, tvars), max_grad_norm)
         optimizer = tf$train$GradientDescentOptimizer(lr)
         train_op = optimizer$apply_gradients(zip(grads, tvars), global_step=tf$contrib$framework$get_or_create_global_step())
         
         new_lr = tf$placeholder(tf$float32, shape=c(), name="new_learning_rate")
         lr_update = tf$assign(lr, new_lr)
+        
+        list(cost = cost, lr = lr)
     }
     
     list(runModel = runModel)
@@ -104,12 +112,13 @@ model <- function(){
 with(tf$Graph()$as_default(), {
     initializer = tf$random_uniform_initializer(-1 * init_scale, init_scale)
     
-    trainingTest <- batchData(train, 20, 20)
+    trainingTest <- batchData(train, 20L, 20L)
     with(tf$name_scope("Train"), {
-        with(tf$variable_scope("Model", reuse=NA, initializer=initializer),{
-            m = model(is_training = TRUE, data = trainingTest, targets = trainingTest)
-            tf$summary$scalar("Training Loss", m.cost)
-            tf$summary$scalar("Learning Rate", m.lr)
+        with(tf$variable_scope("Model", reuse=FALSE, initializer=initializer),{
+            m = languageModel()
+            results <- m$runModel(isTraining = TRUE, data = trainingTest, targets = trainingTest)
+            tf$summary$scalar("Training Loss", m$cost)
+            tf$summary$scalar("Learning Rate", m$lr)
         })
     })
 })
