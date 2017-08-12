@@ -36,13 +36,13 @@ languageModel <- function(){
     }
     
     # Layer multiple RNN cells together
-    makeLayeredCells <- function(isTraining){
+    makeLayeredCells <- function(isTraining, batchSize){
         cellLayers <<- tf$contrib$rnn$MultiRNNCell(replicate(num_layers, makeAttnCell(isTraining)))
-        initialState <<- cellLayers$zero_state(batch_size, tf$float32)
+        initialState <<- cellLayers$zero_state(batchSize, tf$float32)
     }
     
-    runModel <- function(isTraining, data, targets, batch_size = 20L, num_steps = 20L){
-        makeLayeredCells(isTraining)
+    runModel <- function(isTraining, data, targets, batchSize = 20L, numSteps = 20L){
+        makeLayeredCells(isTraining, batchSize)
         
         # Create the embedding variable
         embedding <- tf$get_variable("embedding", shape = shape(vocab_size, hidden_size), dtype = tf$float32)
@@ -57,11 +57,10 @@ languageModel <- function(){
         state <- initialState
         
         with(tf$variable_scope("RNN"), {
-            for(time_step in seq.int(from = 0L, to = (num_steps - 1L))){
+            for(time_step in seq.int(from = 0L, to = (numSteps - 1L))){
                 if(time_step > 0L){
                     tf$get_variable_scope()$reuse_variables()
                 } 
-                # Line below changed:
                 results = cellLayers(inputs[, time_step, ], state)
                 outputs = c(outputs, results[1])
                 state = results[[2]]
@@ -74,13 +73,13 @@ languageModel <- function(){
         logits = tf$matmul(output, softmax_w) + softmax_b
             
         # Reshape logits to be 3-D tensor for sequence loss
-        logits = tf$reshape(logits, c(batch_size, num_steps, vocab_size))
+        logits = tf$reshape(logits, c(batchSize, numSteps, vocab_size))
         
         # use the contrib sequence loss and average over the batches
         loss = tf$contrib$seq2seq$sequence_loss(
             logits,
             targets,
-            tf$ones(list(batch_size, num_steps), dtype=tf$float32),
+            tf$ones(list(batchSize, numSteps), dtype=tf$float32),
             average_across_timesteps=FALSE,
             average_across_batch=TRUE
         )
