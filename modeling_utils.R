@@ -49,8 +49,11 @@ getWordIds <- function(filename){
 #test <- getWordsIds('test.txt')
 #gc()
 
-batchData <- function(data, batchSize, steps){
+batchData <- function(data, batchSize, steps, isTrain = FALSE){
     #detach('package:quanteda')
+    
+    batches <- floor(length(data) / batchSize)
+    lastBatchedElement <- batches * batchSize
     
     with(tf$name_scope('batcher'), {
         # Load the data
@@ -59,7 +62,7 @@ batchData <- function(data, batchSize, steps){
         # Calculate how many batches there are, and reshape the vector to a table of batches.
         dataLen = tf$size(data)
         batchLen = dataLen %/% batchSize
-        data = tf$reshape(data[1L : 20832900L], list(batchSize, batchLen))
+        data = tf$reshape(data[1L : lastBatchedElement], list(batchSize, batchLen))
         
         # The last batch is incomplete because data is not exactly a multiple of batchSize
         epochSize = (batchLen - 1L)
@@ -79,3 +82,5 @@ batchData <- function(data, batchSize, steps){
         return(c(x,y))
     })
 }
+
+detach('package:quanteda')
