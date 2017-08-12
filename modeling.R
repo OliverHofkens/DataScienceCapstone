@@ -55,22 +55,23 @@ languageModel <- function(){
             inputs = tf$nn$dropout(inputs, keep_prob)
         }
            
-        outputs <- c()
+        outputs <- list()
         state <- initialState
         
         with(tf$variable_scope("RNN"), {
-            for(time_step in seq(0L, num_steps)){
+            for(time_step in seq.int(from = 0L, to = (num_steps - 1L))){
                 if(time_step > 0L){
                     tf$get_variable_scope()$reuse_variables()
                 } 
-                results = cellLayers(inputs[, time_step, ], state)
-                outputs = c(outputs, results$cell_output)
-                stats = results$state
+                # Line below changed:
+                results = cellLayers(inputs[0L, time_step, , ], state)
+                outputs = c(outputs, results[1])
+                state = results[[2]]
             }
         })
         
-        output = tf$reshape(tf$stack(axis=1, values=outputs), c(-1L, size))
-        softmax_w = tf$get_variable("softmax_w", c(size, vocab_size), dtype=tf$float32)
+        output = tf$reshape(tf$stack(axis=1L, values=outputs), list(-1L, hidden_size))
+        softmax_w = tf$get_variable("softmax_w", c(hidden_size, vocab_size), dtype=tf$float32)
         softmax_b = tf$get_variable("softmax_b", c(vocab_size), dtype=tf$float32)
         logits = tf$matmul(output, softmax_w) + softmax_b
             
@@ -116,7 +117,7 @@ with(tf$Graph()$as_default(), {
     with(tf$name_scope("Train"), {
         with(tf$variable_scope("Model", reuse=FALSE, initializer=initializer),{
             m = languageModel()
-            results <- m$runModel(isTraining = TRUE, data = trainingTest, targets = trainingTest)
+            results <- m$runModel(isTraining = TRUE, data = trainingTest[1], targets = trainingTest[2])
             tf$summary$scalar("Training Loss", m$cost)
             tf$summary$scalar("Learning Rate", m$lr)
         })
