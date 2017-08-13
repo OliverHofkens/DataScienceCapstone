@@ -171,11 +171,16 @@ runEpoch <- function(session, model, eval_op = NA, verbose = FALSE){
     }
     
     for(i in seq.int(from = 0L, to = model$getEpochSize())){
-        feed_dict = list()
+        feed_dict = dict()
         
-        for(item in model$getInitialState()){
-            feed_dict$c = state[[i]]$c
-            feed_dict$h = state[[i]]$h
+        index = 1L
+        initialState <- model$getInitialState()
+        for(item in initialState){
+            c <- item$c
+            h <- item$h
+            feed_dict[[c]] = state[[index]]$c
+            feed_dict[[h]] = state[[index]]$h
+            index = index + 1
         }
         
         vals = session$run(fetches, feed_dict)
@@ -185,8 +190,8 @@ runEpoch <- function(session, model, eval_op = NA, verbose = FALSE){
         costs = costs + cost
         iters = iters + model$getNumSteps()
         
-        if(verbose && step %% (model$getEpochSize %/% 10) == 10){
-            sprintf("%.3f perplexity: %.3f", step * 1.0 / model$getEpochSize, exp(costs / iters))
+        if(verbose && step %% (model$getEpochSize() %/% 10) == 10){
+            sprintf("%.3f perplexity: %.3f", step * 1.0 / model$getEpochSize(), exp(costs / iters))
         }
     }
        
