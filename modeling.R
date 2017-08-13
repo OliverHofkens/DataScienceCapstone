@@ -191,7 +191,7 @@ runEpoch <- function(session, model, eval_op = NA, verbose = FALSE){
         iters = iters + model$getNumSteps()
         
         if(verbose && step %% (model$getEpochSize() %/% 10) == 10){
-            sprintf("%.3f perplexity: %.3f", step * 1.0 / model$getEpochSize(), exp(costs / iters))
+            cat(sprintf("%.3f perplexity: %.3f", step * 1.0 / model$getEpochSize(), exp(costs / iters)))
         }
     }
        
@@ -235,16 +235,16 @@ with(tf$Graph()$as_default(), {
             lr_decay = 0.5 ** max(i + 1 - 4, 0.0)
             mTrain$assignLr(sess, 1 * lr_decay)
             
-            sprintf("Epoch: %d Learning rate: %.3f", i + 1, sess$run(mTrain$getLr()))
+            cat(sprintf("Epoch: %d Learning rate: %.3f", i + 1, sess$run(mTrain$getLr())))
             train_perplexity = runEpoch(sess, mTrain, eval_op=mTrain$getTrainOp(), verbose=TRUE)
-            sprintf("Epoch: %d Train Perplexity: %.3f",  i + 1, train_perplexity)
+            cat(sprintf("Epoch: %d Train Perplexity: %.3f",  i + 1, train_perplexity))
             
             valid_perplexity = runEpoch(sess, mValid)
-            sprintf("Epoch: %d Valid Perplexity: %.3f", i + 1, valid_perplexity)
+            cat(sprintf("Epoch: %d Valid Perplexity: %.3f", i + 1, valid_perplexity))
         }
            
         test_perplexity = runEpoch(sess, mTest)
-        sprintf("Test Perplexity: %.3f", test_perplexity)
+        cat(sprintf("Test Perplexity: %.3f", test_perplexity))
             
         print("Saving model")
         supervisor$saver$save(sess, getwd(), global_step=supervisor.global_step)
