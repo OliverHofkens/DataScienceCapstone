@@ -13,11 +13,17 @@ languageModel <- function(){
     lr_decay <- 0.5
     vocab_size <- 10000L
     
+    epochSize <- 0L
     cellLayers <- 0L
     initialState <- 0L
-    
+    finalState <- 0L
     cost <- 0L
     learningRate <- 0L
+    lrUpdate <- 0L
+    newLr <- 0L
+    lr <- 0L
+    num_steps <- 0L
+    trainOp <- 0L
     
     # Create an LSTM cell;
     makeLstmCell <- function(){
@@ -42,6 +48,9 @@ languageModel <- function(){
     }
     
     runModel <- function(isTraining, data, targets, batchSize = 20L, numSteps = 20L){
+        num_steps <<- numSteps
+        epochSize <<- ((length(data) %/% batchSize) - 1) %/% numSteps
+        
         makeLayeredCells(isTraining, batchSize)
         
         # Create the embedding variable
@@ -85,28 +94,103 @@ languageModel <- function(){
         )
         
         # update the cost variables
-        cost = tf$reduce_sum(loss)
-        final_state = state
+        cost <<- tf$reduce_sum(loss)
+        finalState <<- state
         
         if(!isTraining){
             return(list(cost = cost))
         }
         
-        lr = tf$Variable(0.0, trainable=FALSE)
+        lr <<- tf$Variable(0.0, trainable=FALSE)
         tvars = tf$trainable_variables()
         grads = tf$clip_by_global_norm(tf$gradients(cost, tvars), max_grad_norm)
         grads = grads[[1]]
         optimizer = tf$train$GradientDescentOptimizer(lr)
         zipped = mapply(c, grads, tvars, SIMPLIFY = FALSE)
-        train_op = optimizer$apply_gradients(zipped, global_step=tf$contrib$framework$get_or_create_global_step())
+        trainOp <<- optimizer$apply_gradients(zipped, global_step=tf$contrib$framework$get_or_create_global_step())
         
-        new_lr = tf$placeholder(tf$float32, shape=c(), name="new_learning_rate")
-        lr_update = tf$assign(lr, new_lr)
+        newLr <<- tf$placeholder(tf$float32, shape=c(), name="new_learning_rate")
+        lrUpdate <<- tf$assign(lr, newLr)
         
         list(cost = cost, lr = lr)
     }
     
-    list(runModel = runModel)
+    assignLr <- function(session, value){
+        session$run(lrUpdate, feed_dict=dict(newLr = value))
+    }
+    
+    getLr <- function(){
+        lr
+    }
+    
+    getCost <- function(){
+        cost
+    }
+    
+    getInitialState <- function(){
+        initialState
+    }
+    
+    getFinalState <- function(){
+        finalState
+    }
+    
+    getEpochSize <- function(){
+        epochSize
+    }
+    
+    getNumSteps <- function(){
+        num_steps
+    }
+    
+    getTrainOp <- function(){
+        trainOp
+    }
+    
+    list(
+        runModel = runModel, 
+        assignLr = assignLr, 
+        getLr = getLr, 
+        getInitialState = getInitialState, 
+        getCost = getCost,
+        getFinalState = getFinalState,
+        getEpochSize = getEpochSize,
+        getNumSteps = getNumSteps,
+        getTrainOp = getTrainOp
+        )
+}
+
+runEpoch <- function(session, model, eval_op = NA, verbose = FALSE){
+    costs = 0.0
+    iters = 0L
+    state = session$run(model$getInitialState())
+    
+    fetches = list(cost = model$getCost(), finalState = model$getFinalState())
+    if(!is.na(eval_op)){
+        fetches$evalOp <- eval_op
+    }
+    
+    for(i in seq.int(from = 0L, to = model$getEpochSize())){
+        feed_dict = list()
+        
+        for(item in model$getInitialState()){
+            feed_dict$c = state[[i]]$c
+            feed_dict$h = state[[i]]$h
+        }
+        
+        vals = session$run(fetches, feed_dict)
+        cost = vals$cost
+        state = vals$finalState
+        
+        costs = costs + cost
+        iters = iters + model$getNumSteps()
+        
+        if(verbose && step %% (model$getEpochSize %/% 10) == 10){
+            sprintf("%.3f perplexity: %.3f", step * 1.0 / model$getEpochSize, exp(costs / iters))
+        }
+    }
+       
+    return(exp(costs/iters))
 }
 
 with(tf$Graph()$as_default(), {
@@ -115,8 +199,8 @@ with(tf$Graph()$as_default(), {
     trainingInput <- batchData(train, 20L, 20L)
     with(tf$name_scope("Train"), {
         with(tf$variable_scope("Model", reuse=FALSE, initializer=initializer),{
-            m = languageModel()
-            results <- m$runModel(isTraining = TRUE, data = trainingInput[[1]], targets = trainingInput[[2]])
+            mTrain = languageModel()
+            results <- mTrain$runModel(isTraining = TRUE, data = trainingInput[[1]], targets = trainingInput[[2]])
             tf$summary$scalar("Training Loss", results$cost)
             tf$summary$scalar("Learning Rate", results$lr)
         })
@@ -125,8 +209,8 @@ with(tf$Graph()$as_default(), {
     validationInput <- batchData(validation, 20L, 20L)
     with(tf$name_scope("Valid"), {
         with(tf$variable_scope("Model", reuse=TRUE, initializer=initializer),{
-            m = languageModel()
-            results <- m$runModel(isTraining = FALSE, data = validationInput[[1]], targets = validationInput[[2]])
+            mValid = languageModel()
+            results <- mValid$runModel(isTraining = FALSE, data = validationInput[[1]], targets = validationInput[[2]])
             tf$summary$scalar("Validation Loss", results$cost)
         })
     })
@@ -134,9 +218,31 @@ with(tf$Graph()$as_default(), {
     testInput <- batchData(test, 1L, 1L)
     with(tf$name_scope("Test"), {
         with(tf$variable_scope("Model", reuse=TRUE, initializer=initializer),{
-            m = languageModel()
-            results <- m$runModel(isTraining = FALSE, data = testInput[[1]], targets = testInput[[2]], 1L, 1L)
+            mTest = languageModel()
+            results <- mTest$runModel(isTraining = FALSE, data = testInput[[1]], targets = testInput[[2]], 1L, 1L)
         })
+    })
+    
+    supervisor <- tf$train$Supervisor(logdir=getwd())
+    
+    with(supervisor$managed_session() %as% sess, {
+        for(i in seq.int(from = 0L, to = 12L)){
+            lr_decay = 0.5 ** max(i + 1 - 4, 0.0)
+            mTrain$assignLr(sess, 1 * lr_decay)
+            
+            sprintf("Epoch: %d Learning rate: %.3f", i + 1, sess$run(mTrain$getLr()))
+            train_perplexity = runEpoch(sess, mTrain, eval_op=mTrain$getTrainOp(), verbose=TRUE)
+            sprintf("Epoch: %d Train Perplexity: %.3f",  i + 1, train_perplexity)
+            
+            valid_perplexity = runEpoch(sess, mValid)
+            sprintf("Epoch: %d Valid Perplexity: %.3f", i + 1, valid_perplexity)
+        }
+           
+        test_perplexity = runEpoch(sess, mTest)
+        sprintf("Test Perplexity: %.3f", test_perplexity)
+            
+        print("Saving model")
+        supervisor$saver$save(sess, getwd(), global_step=supervisor.global_step)
     })
 })
 
