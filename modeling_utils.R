@@ -53,7 +53,7 @@ batchData <- function(data, batchSize, steps, isTrain = FALSE){
     #detach('package:quanteda')
     
     batches <- floor(length(data) / batchSize)
-    lastBatchedElement <- batches * batchSize
+    lastBatchedElement <- (batches * batchSize) - 1
     
     with(tf$name_scope('batcher'), {
         # Load the data
@@ -62,7 +62,7 @@ batchData <- function(data, batchSize, steps, isTrain = FALSE){
         # Calculate how many batches there are, and reshape the vector to a table of batches.
         dataLen = tf$size(data)
         batchLen = dataLen %/% batchSize
-        data = tf$reshape(data[1L : lastBatchedElement], list(batchSize, batchLen))
+        data = tf$reshape(data[0L : lastBatchedElement], list(batchSize, batchLen))
         
         # The last batch is incomplete because data is not exactly a multiple of batchSize
         epochSize = (batchLen - 1L)

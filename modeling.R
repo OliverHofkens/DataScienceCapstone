@@ -49,8 +49,6 @@ languageModel <- function(){
     
     runModel <- function(isTraining, data, targets, batchSize = 20L, numSteps = 20L){
         num_steps <<- numSteps
-        epochSize <<- ((length(data) %/% batchSize) - 1) %/% numSteps
-        
         makeLayeredCells(isTraining, batchSize)
         
         # Create the embedding variable
@@ -135,10 +133,6 @@ languageModel <- function(){
         finalState
     }
     
-    getEpochSize <- function(){
-        epochSize
-    }
-    
     getNumSteps <- function(){
         num_steps
     }
@@ -154,23 +148,22 @@ languageModel <- function(){
         getInitialState = getInitialState, 
         getCost = getCost,
         getFinalState = getFinalState,
-        getEpochSize = getEpochSize,
         getNumSteps = getNumSteps,
         getTrainOp = getTrainOp
         )
 }
 
-runEpoch <- function(session, model, eval_op = NA, verbose = FALSE){
+runEpoch <- function(session, model, epochSize, eval_op = NA, verbose = FALSE){
     costs = 0.0
     iters = 0L
     state = session$run(model$getInitialState())
     
-    fetches = list(cost = model$getCost(), finalState = model$getFinalState())
+    fetches = dict(cost = model$getCost(), finalState = model$getFinalState())
     if(!is.na(eval_op)){
         fetches$evalOp <- eval_op
     }
     
-    for(i in seq.int(from = 0L, to = model$getEpochSize())){
+    for(i in seq.int(from = 0L, to = epochSize)){
         feed_dict = dict()
         
         index = 1L
@@ -190,13 +183,17 @@ runEpoch <- function(session, model, eval_op = NA, verbose = FALSE){
         costs = costs + cost
         iters = iters + model$getNumSteps()
         
-        if(verbose && step %% (model$getEpochSize() %/% 10) == 10){
-            cat(sprintf("%.3f perplexity: %.3f", step * 1.0 / model$getEpochSize(), exp(costs / iters)))
+        if(verbose && i %% (epochSize %/% 10) == 10){
+            cat(sprintf("%.3f perplexity: %.3f", i * 1.0 / epochSize, exp(costs / iters)))
         }
     }
        
     return(exp(costs/iters))
 }
+
+train <- train[!is.na(train)]
+validation <- validation[!is.na(validation)]
+test <- test[!is.na(test)]
 
 with(tf$Graph()$as_default(), {
     initializer = tf$random_uniform_initializer(-1 * init_scale, init_scale)
@@ -236,14 +233,17 @@ with(tf$Graph()$as_default(), {
             mTrain$assignLr(sess, 1 * lr_decay)
             
             cat(sprintf("Epoch: %d Learning rate: %.3f", i + 1, sess$run(mTrain$getLr())))
-            train_perplexity = runEpoch(sess, mTrain, eval_op=mTrain$getTrainOp(), verbose=TRUE)
+            trainEpochSize <- ((length(train) %/% 20L) - 1) %/% 20L
+            train_perplexity = runEpoch(sess, mTrain, epochSize = trainEpochSize, eval_op=mTrain$getTrainOp(), verbose=TRUE)
             cat(sprintf("Epoch: %d Train Perplexity: %.3f",  i + 1, train_perplexity))
             
-            valid_perplexity = runEpoch(sess, mValid)
+            validEpochSize <- ((length(validation) %/% 20L) - 1) %/% 20L
+            valid_perplexity = runEpoch(sess, mValid, validEpochSize)
             cat(sprintf("Epoch: %d Valid Perplexity: %.3f", i + 1, valid_perplexity))
         }
-           
-        test_perplexity = runEpoch(sess, mTest)
+        
+        testEpochSize <- ((length(test) %/% 1L) - 1) %/% 1L
+        test_perplexity = runEpoch(sess, mTest, testEpochSize)
         cat(sprintf("Test Perplexity: %.3f", test_perplexity))
             
         print("Saving model")
