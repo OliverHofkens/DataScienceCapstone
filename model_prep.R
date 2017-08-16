@@ -1,8 +1,7 @@
 source('clean_data.R')
 library(quanteda)
 
-tmCorpus <- corpus
-rm(corpus)
+tmCorpus <- getCleanData()
 quantCorp <-  corpus(tmCorpus)
 
 # Get the most common words:
@@ -10,6 +9,7 @@ quantCorpDfm <- dfm(quantCorp)
 commonWords <- names(topfeatures(quantCorpDfm, 10000))
 
 # Replace rare words with '<unk>'
+# TODO: Only use training dictionary to calculate common vs uncommon???
 replaceWithUnk <- function(x, commons){
     words <- unlist(strsplit(x, split = " "))
     selection = !(words %in% commons)
@@ -18,14 +18,17 @@ replaceWithUnk <- function(x, commons){
     paste(words, collapse = " ")
 }
 
+# Vectorize the above function
 replaceWithUnkVector <- function(x, commons){
     sapply(x, replaceWithUnk, commons = commons)
 }
 
+# Apply the filter to the corpus
 newCorpus <- tm_map(tmCorpus, content_transformer(replaceWithUnkVector), commons = commonWords, mc.cores=7)
 
-directory <- 'data/modelprep'
-dir.create(directory, showWarnings = FALSE)
+# Write the new corpus to txt files:
+directory <- 'data/model_input'
+dir.create(directory, showWarnings = FALSE, recursive = TRUE)
 writeCorpus(newCorpus, directory)
 
 # Read all lines of all files:

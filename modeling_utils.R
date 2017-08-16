@@ -3,55 +3,67 @@ library(quanteda)
 library(data.table)
 library(parallel)
 
-directory <- 'data/modelprep/'
+directory <- 'data/model_input/'
 
+# Load a corpus from the given filename
 getCorpus <- function(filename){
     file <- paste(directory, filename, sep="")
     content <- paste(readLines(file), collapse = " <eos> ")
-    corpus(content)
+    corpus <- corpus(content)
 }
 
+# Build the document-feature matrix of the contents of given filename
 buildDfm <- function(filename){
     corp <- getCorpus(filename)
-    result <- dfm(corp, what = "fasterword")
+    result <- dfm(corp, what="fastestword", remove_url=TRUE)
     dfm_sort(result)
 }
 
+# Build a vocabulary dictionary consisting of word -> ID
 buildVocab <- function(filename){
     freq <- buildDfm(filename)
     table <- as.data.table(freq)
-    words <- colnames(table)
-    words <- as.data.table(words)
+    words <- as.data.table(colnames(table))
     words <- cbind(words, as.integer(rownames(words)))
     colnames(words) <- c('word', 'id')
     setkey(words, word, id)
     words
 }
 
+# Translate a word to an ID (based on dictionary vocab)
 wordToId <- function(word, vocab){
     vocab[.(word)]$id
 }
 
+# Tokenize a file
 getTokens <- function(filename){
     corp <- getCorpus(filename)
-    words <- tokens(corp, what = "fasterword")
+    words <- tokens(corp, what="fastestword", remove_url=TRUE)
     words <- words$text1
 }
 
-getWordIds <- function(filename){
-    vocab <- buildVocab(filename)
+# Translate a file into IDs
+getWordIds <- function(filename, vocab){
     tokens <- getTokens(filename)
-    vocab[.(tokens)]$id
+    ids <- vocab[.(tokens)]$id
+    
+    # remove words that weren't found:
+    ids[!is.na(ids)]
 }
 
-#train <- getWordIds('train.txt')
-#validation <- getWordIds('validation.txt')
-#test <- getWordsIds('test.txt')
-#gc()
+loadVocabulary <- function(){
+    buildVocab('train.txt')
+}
+
+loadModelInputs <- function(){
+    vocab <- loadVocabulary()
+    train <- getWordIds('train.txt', vocab)
+    validation <- getWordIds('validation.txt', vocab)
+    test <- getWordIds('test.txt', vocab)
+    list(train = train, validation = validation, test = test, vocabulary <- vocab)
+}
 
 batchData <- function(data, batchSize, steps, isTrain = FALSE){
-    #detach('package:quanteda')
-    
     batches <- floor(length(data) / batchSize)
     lastBatchedElement <- (batches * batchSize) - 1
     
@@ -83,4 +95,4 @@ batchData <- function(data, batchSize, steps, isTrain = FALSE){
     })
 }
 
-detach('package:quanteda')
+#detach('package:quanteda')
