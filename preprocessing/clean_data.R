@@ -1,15 +1,13 @@
 library(tm)
 library(parallel)
 
-source('get_data.R')
-
-cores = parallel::detectCores()
+cores = parallel::detectCores() - 1
 tm_parLapply_engine(parallel::mclapply)
 
 # Load in the files as a TM corpus:
-getRawCorpus <- function(language){
-    dir <- getRawData(language)
-    VCorpus(DirSource(dir, encoding = "UTF-8"), readerControl = list(language = language))
+getRawCorpus <- function(){
+    dir <- 'data/split'
+    VCorpus(DirSource(dir, encoding = "UTF-8"), readerControl = list())
 }
 
 # Download and import a list of profane words:
@@ -35,7 +33,6 @@ cleanCorpus <- function(corpus, language){
     # Strip excessive whitespace
     # Remove numbers and punctuation
     # Lowercase all
-    # TODO: Remove emoji!
     transforms <- list(stripWhitespace,
                 removePunctuation,
                 removeNumbers,
@@ -50,21 +47,13 @@ cleanCorpus <- function(corpus, language){
     corpus
 }
 
-getCleanData <- function(){
-    cleanDataFile <- 'data/clean/en_US.RData'
+getCleanData <- function(language){
+    cleanDataDir <- 'data/clean'
+    dir.create('data/clean', showWarnings = FALSE)
     
-    if(!file.exists(cleanDataFile)){
-        rawCorpus <- getRawCorpus('en_US')
-        corpus <- cleanCorpus(rawCorpus, 'en_US')
-        
-        rm(rawCorpus)
-        
-        dir.create('data/clean', showWarnings = FALSE, recursive = TRUE)
-        
-        saveRDS(corpus, cleanDataFile)
-        
-        return(corpus)
-    } else {
-        return(readRDS(cleanDataFile))
-    }
+    rawCorpus <- getRawCorpus()
+    corpus <- cleanCorpus(rawCorpus, language)
+    
+    writeCorpus(corpus, path = cleanDataDir)
+    cleanDataDir
 }
