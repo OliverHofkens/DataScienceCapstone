@@ -5,9 +5,9 @@ cores = parallel::detectCores() - 1
 tm_parLapply_engine(parallel::mclapply)
 
 # Load in the files as a TM corpus:
-getRawCorpus <- function(){
+getRawCorpus <- function(language){
     dir <- 'data/split'
-    VCorpus(DirSource(dir, encoding = "UTF-8"), readerControl = list())
+    corp <- VCorpus(DirSource(dir, encoding="UTF-8-MAC"), readerControl = list(reader = readPlain, language = language))
 }
 
 # Download and import a list of profane words:
@@ -30,12 +30,17 @@ getProfaneWords <- function(language){
 
 # Clean the given corpus:
 cleanCorpus <- function(corpus, language){
+    # Removes punctuation that usually doesn't appear inside a word (preserves dashes and single quotes for e.g. isn't)
+    removePunctuationSafe <- function(x){
+        gsub("[][!\"#$%&()*+,./:;<=>?@\\^_`{|}~]", "", x)
+    }
+    
     # Strip excessive whitespace
     # Remove numbers and punctuation
     # Lowercase all
     transforms <- list(stripWhitespace,
-                removePunctuation,
                 removeNumbers,
+                content_transformer(removePunctuationSafe),
                 content_transformer(tolower))
     
     corpus <- tm_map(corpus, FUN = tm_reduce, tmFuns = transforms, mc.cores=cores)
@@ -51,9 +56,9 @@ getCleanData <- function(language){
     cleanDataDir <- 'data/clean'
     dir.create('data/clean', showWarnings = FALSE)
     
-    rawCorpus <- getRawCorpus()
+    rawCorpus <- getRawCorpus(language)
     corpus <- cleanCorpus(rawCorpus, language)
     
-    writeCorpus(corpus, path = cleanDataDir)
+    writeCorpus(corpus, path = cleanDataDir, filenames = c('test.txt','training.txt', 'validation.txt'))
     cleanDataDir
 }

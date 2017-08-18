@@ -3,6 +3,7 @@ source("preprocessing/split_data.R")
 source("preprocessing/clean_data.R")
 
 language <- 'en_US'
+Sys.setlocale("LC_ALL", "nl_BE.UTF-8")
 
 # Downloads the raw data
 rawEnglish <- getRawData(language)
@@ -11,5 +12,6 @@ rawEnglish <- getRawData(language)
 splitData(rawEnglish)
 
 # Cleans the data
-# ! TODO: This messes up all quotes and other signs:
 cleanEnglish <- getCleanData(language)
+
+
