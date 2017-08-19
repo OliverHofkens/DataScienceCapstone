@@ -32,22 +32,31 @@ getProfaneWords <- function(language){
 cleanCorpus <- function(corpus, language){
     # Removes punctuation that usually doesn't appear inside a word (preserves dashes and single quotes for e.g. isn't)
     removePunctuationSafe <- function(x){
-        gsub("[][!\"#$%&()*+,./:;<=>?@\\^_`{|}~]", "", x)
+        gsub("[][!\"#$%&()*+,./:;<=>?@\\^_`{|}~\u201C\u201D\u00AB\u00BB\u00BD\u00B7\u2026\u0093\u0094\u0092\u0096\u0097\u2032\u2033\u00B4]", " ", x)
     }
     
-    # Strip excessive whitespace
+    # Removes dashes and quotes that can actually appear inside a word (but don't)
+    removeOtherPunctuation <- function(x){
+        x <- gsub("\\W['-]", " ", x)
+        gsub("['-]\\W", " ", x)
+    }
+    
     # Remove numbers and punctuation
     # Lowercase all
-    transforms <- list(stripWhitespace,
+    transforms <- list(
                 removeNumbers,
                 content_transformer(removePunctuationSafe),
-                content_transformer(tolower))
-    
+                content_transformer(removeOtherPunctuation),
+                content_transformer(tolower)
+    )
     corpus <- tm_map(corpus, FUN = tm_reduce, tmFuns = transforms, mc.cores=cores)
     
     # Remove profanity
     profane <- getProfaneWords(language)
     corpus <- tm_map(corpus, removeWords, words=profane, mc.cores=cores)
+    
+    # Remove excessive whitespace
+    corpus <- tm_map(corpus, FUN = stripWhitespace)
     
     corpus
 }
