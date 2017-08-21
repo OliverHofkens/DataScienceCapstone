@@ -3,6 +3,7 @@ library(quanteda)
 library(data.table)
 library(parallel)
 
+Sys.setlocale("LC_ALL", "nl_BE.UTF-8")
 directory <- 'data/model_input/'
 
 # Load a corpus from the given filename
@@ -15,7 +16,7 @@ getCorpus <- function(filename){
 # Build the document-feature matrix of the contents of given filename
 buildDfm <- function(filename){
     corp <- getCorpus(filename)
-    result <- dfm(corp, what="fastestword", remove_url=TRUE)
+    result <- dfm(corp, what="fastestword")
     dfm_sort(result)
 }
 
@@ -38,7 +39,7 @@ wordToId <- function(word, vocab){
 # Tokenize a file
 getTokens <- function(filename){
     corp <- getCorpus(filename)
-    words <- tokens(corp, what="fastestword", remove_url=TRUE)
+    words <- tokens(corp, what="fastestword")
     words <- words$text1
 }
 
@@ -47,23 +48,28 @@ getWordIds <- function(filename, vocab){
     tokens <- getTokens(filename)
     ids <- vocab[.(tokens)]$id
     
-    # remove words that weren't found:
-    ids[!is.na(ids)]
+    unk <- vocab[vocab$word == "<unk>"]$id
+    
+    # remove words that weren't found with <unk>
+    ids[is.na(ids)] <- unk
+    
+    ids
 }
 
 loadVocabulary <- function(){
-    buildVocab('train.txt')
+    buildVocab('training.txt')
 }
 
 loadModelInputs <- function(){
     vocab <- loadVocabulary()
-    train <- getWordIds('train.txt', vocab)
+    train <- getWordIds('training.txt', vocab)
     validation <- getWordIds('validation.txt', vocab)
     test <- getWordIds('test.txt', vocab)
-    list(train = train, validation = validation, test = test, vocabulary <- vocab)
+    list(train = train, validation = validation, test = test, vocabulary = vocab)
 }
 
-batchData <- function(data, batchSize, steps, isTrain = FALSE){
+# Creates batches of data from the complete input set.
+batchData <- function(data, batchSize, steps){
     batches <- floor(length(data) / batchSize)
     lastBatchedElement <- (batches * batchSize) - 1
     
@@ -77,12 +83,13 @@ batchData <- function(data, batchSize, steps, isTrain = FALSE){
         data = tf$reshape(data[0L : lastBatchedElement], list(batchSize, batchLen))
         
         # The last batch is incomplete because data is not exactly a multiple of batchSize
-        epochSize = (batchLen - 1L)
+        epochSize = (batchLen - 1L) %/% steps
         assertion = tf$assert_positive(epochSize, message="epochSize == 0, decrease batchSize or numSteps")
         with(tf$control_dependencies(list(assertion)), {
             epochSize = tf$identity(epochSize, name="epoch_size")
         })
         
+        # Create the actual batches
         i = tf$train$range_input_producer(epochSize, shuffle=FALSE)$dequeue()
         
         x = tf$strided_slice(data, list(0L, i * steps), list(batchSize, (i + 1L) * steps))
@@ -95,4 +102,4 @@ batchData <- function(data, batchSize, steps, isTrain = FALSE){
     })
 }
 
-#detach('package:quanteda')
+detach('package:quanteda')
