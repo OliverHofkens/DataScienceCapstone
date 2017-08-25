@@ -1,13 +1,12 @@
-library(tensorflow)
 library(quanteda)
 library(data.table)
 library(parallel)
 
 Sys.setlocale("LC_ALL", "nl_BE.UTF-8")
-directory <- 'data/model_input/'
 
 # Load a corpus from the given filename
 getCorpus <- function(filename){
+    directory <- 'data/model_input/'
     file <- paste(directory, filename, sep="")
     content <- paste(readLines(file), collapse = " <eos> ")
     corpus <- corpus(content)
@@ -67,39 +66,3 @@ loadModelInputs <- function(){
     test <- getWordIds('test.txt', vocab)
     list(train = train, validation = validation, test = test, vocabulary = vocab)
 }
-
-# Creates batches of data from the complete input set.
-batchData <- function(data, batchSize, steps){
-    batches <- floor(length(data) / batchSize)
-    lastBatchedElement <- (batches * batchSize) - 1
-    
-    with(tf$name_scope('batcher'), {
-        # Load the data
-        data = tf$convert_to_tensor(data, name="raw_data", dtype=tf$int32)
-        
-        # Calculate how many batches there are, and reshape the vector to a table of batches.
-        dataLen = tf$size(data)
-        batchLen = dataLen %/% batchSize
-        data = tf$reshape(data[0L : lastBatchedElement], list(batchSize, batchLen))
-        
-        # The last batch is incomplete because data is not exactly a multiple of batchSize
-        epochSize = (batchLen - 1L) %/% steps
-        assertion = tf$assert_positive(epochSize, message="epochSize == 0, decrease batchSize or numSteps")
-        with(tf$control_dependencies(list(assertion)), {
-            epochSize = tf$identity(epochSize, name="epoch_size")
-        })
-        
-        # Create the actual batches
-        i = tf$train$range_input_producer(epochSize, shuffle=FALSE)$dequeue()
-        
-        x = tf$strided_slice(data, list(0L, i * steps), list(batchSize, (i + 1L) * steps))
-        x$set_shape(shape(batchSize, steps))
-        
-        y = tf$strided_slice(data, list(0L, i * steps + 1L), list(batchSize, (i + 1L) * steps + 1L))
-        y$set_shape(shape(batchSize, steps))
-        
-        return(c(x,y))
-    })
-}
-
-detach('package:quanteda')

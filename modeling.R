@@ -1,18 +1,23 @@
+source("modeling/loader.R")
+source("modeling/input.R")
 library(tensorflow)
 
+modelConfig <- list(
+    initScale = 0.1,
+    learningRate = 1,
+    maxGradientNorm = 5L,
+    numLayers = 2L,
+    hiddenSize = 200L,
+    maxEpoch = 4L,
+    maxMaxEpoch = 13L,
+    keepProb = 1,
+    learningRateDecay = 0.5,
+    vocabSize = 10001L,
+    batchSize = 20L,
+    numSteps = 20L
+)
+
 languageModel <- function(){
-    # Adjustable parameters:
-    init_scale <- 0.1
-    learning_rate <- 1.0
-    max_grad_norm <- 5L
-    num_layers <- 2L
-    hidden_size <- 200L
-    max_epoch <- 4L
-    max_max_epoch <- 13L
-    keep_prob <- 1.0
-    lr_decay <- 0.5
-    vocab_size <- 10000L
-    
     epochSize <- 0L
     cellLayers <- 0L
     initialState <- 0L
@@ -190,6 +195,11 @@ runEpoch <- function(session, model, epochSize, eval_op = NA, verbose = FALSE){
        
     return(exp(costs/iters))
 }
+
+rawData <- loadModelInputs()
+detach('package:quanteda')
+
+trainInput <- LanguageModelInput(modelConfig, rawData$train, "TrainInput")
 
 with(tf$Graph()$as_default(), {
     initializer = tf$random_uniform_initializer(-1 * init_scale, init_scale)
