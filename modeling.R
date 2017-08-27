@@ -53,37 +53,26 @@ with(tf$Graph()$as_default(), {
         })
     })
     
-    dir.create("log", showWarnings = FALSE)
-    supervisor <- tf$train$Supervisor(logdir=paste(getwd(), 'log', sep = "/"))
-    
-    with(supervisor$managed_session() %as% sess, {
-        for(i in seq.int(from = 0L, to = (modelConfig$maxMaxEpoch - 1L))){
-            lrDecay = modelConfig$learningRateDecay ** max(i + 1 - modelConfig$maxEpoch, 0.0)
-            assignLearningRate(m, sess, modelConfig$learningRate * lrDecay)
-            
-            cat(sprintf("Epoch: %d Learning rate: %.3f\n", i + 1, sess$run(m@learningRate))
-            trainPerplexity = runEpoch(sess, m, evalOp=m@trainOp, verbose=TRUE)
-            cat(sprintf("Epoch: %d Train Perplexity: %.3f\n",  i + 1, trainPerplexity))
-            
-            validerplexity = runEpoch(sess, mValid)
-            cat(sprintf("Epoch: %d Valid Perplexity: %.3f\n", i + 1, validPerplexity))
-        }
-        
-        testPerplexity = runEpoch(sess, mTest)
-        cat(sprintf("Test Perplexity: %.3f\n", testPerplexity))
-            
-        print("Saving model\n")
-        supervisor$saver$save(sess, paste(getwd(), 'model', sep = "/"), global_step=supervisor$global_step)
-    })
+    # dir.create("log", showWarnings = FALSE)
+    # supervisor <- tf$train$Supervisor(logdir=paste(getwd(), 'log', sep = "/"))
+    # 
+    # with(supervisor$managed_session() %as% sess, {
+    #     for(i in seq.int(from = 0L, to = (modelConfig$maxMaxEpoch - 1L))){
+    #         lrDecay = modelConfig$learningRateDecay ** max(i + 1 - modelConfig$maxEpoch, 0.0)
+    #         assignLearningRate(m, sess, modelConfig$learningRate * lrDecay)
+    #         
+    #         cat(sprintf("Epoch: %d Learning rate: %.3f\n", i + 1, sess$run(m@learningRate))
+    #         trainPerplexity = runEpoch(sess, m, evalOp=m@trainOp, verbose=TRUE)
+    #         cat(sprintf("Epoch: %d Train Perplexity: %.3f\n",  i + 1, trainPerplexity))
+    #         
+    #         validerplexity = runEpoch(sess, mValid)
+    #         cat(sprintf("Epoch: %d Valid Perplexity: %.3f\n", i + 1, validPerplexity))
+    #     }
+    #     
+    #     testPerplexity = runEpoch(sess, mTest)
+    #     cat(sprintf("Test Perplexity: %.3f\n", testPerplexity))
+    #         
+    #     print("Saving model\n")
+    #     supervisor$saver$save(sess, paste(getwd(), 'model', sep = "/"), global_step=supervisor$global_step)
+    # })
 })
-
-
-
-
-
-
-
-
-
-
-

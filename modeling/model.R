@@ -7,8 +7,8 @@ LanguageModel <- setClass(
         input = "LanguageModelInput",
         initialState = "ANY",
         finalState = "ANY",
-        cost = "numeric",
-        learningRate = "numeric",
+        cost = "ANY",
+        learningRate = "ANY",
         trainOp = "ANY",
         newLearningRate = "ANY",
         learningRateUpdate = "ANY"
@@ -32,12 +32,12 @@ LanguageModel <- function(isTraining, config, input){
     }
     
     # Create the multiple layered RNN cells
-    cell <- tf$contrib$rnn$MultiRNNCell(replicate(config$numLayers, makeAttnCell), state_is_tuple=TRUE)
+    cell <- tf$contrib$rnn$MultiRNNCell(replicate(config$numLayers, makeAttnCell()), state_is_tuple=TRUE)
     model@initialState <- cell$zero_state(config$batchSize, tf$float32)
     
     # Create the embedding variable and lookup
     embedding <- tf$get_variable("embedding", shape = shape(config$vocabSize, config$hiddenSize), dtype = tf$float32)
-    inputs <- tf$nn$embedding_lookup(embedding, input$inputData)
+    inputs <- tf$nn$embedding_lookup(embedding, input@inputData)
     
     # Add dropout if configured
     if (isTraining && config$keepProb < 1){
@@ -71,7 +71,7 @@ LanguageModel <- function(isTraining, config, input){
     # use the contrib sequence loss and average over the batches
     loss = tf$contrib$seq2seq$sequence_loss(
         logits,
-        input$targetData,
+        input@targetData,
         tf$ones(list(config$batchSize, config$numSteps), dtype=tf$float32),
         average_across_timesteps=FALSE,
         average_across_batch=TRUE
@@ -94,7 +94,7 @@ LanguageModel <- function(isTraining, config, input){
     model@trainOp <- optimizer$apply_gradients(zipped, global_step=tf$contrib$framework$get_or_create_global_step())
     
     model@newLearningRate <- tf$placeholder(tf$float32, shape=c(), name="new_learning_rate")
-    model@learningRateUpdate <- tf$assign(lr, newLr)
+    model@learningRateUpdate <- tf$assign(model@learningRate, model@newLearningRate)
     
     model
 }
