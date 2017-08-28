@@ -11,7 +11,7 @@ runEpoch <- function(session, model, evalOp = NA, verbose = FALSE){
     for(i in seq.int(from = 0L, to = (model@input@epochSize - 1))){
         feedDict = dict()
         
-        index = 0L
+        index = 1L
         initialState <- model@initialState
         for(item in initialState){
             c <- item$c

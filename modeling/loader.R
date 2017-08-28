@@ -24,7 +24,7 @@ buildVocab <- function(filename){
     freq <- buildDfm(filename)
     table <- as.data.table(freq)
     words <- as.data.table(colnames(table))
-    words <- cbind(words, as.integer(rownames(words)))
+    words <- cbind(words, (as.integer(rownames(words)) - 1L)) # Subtract 1 for zero-based indexing
     colnames(words) <- c('word', 'id')
     setkey(words, word, id)
     words
