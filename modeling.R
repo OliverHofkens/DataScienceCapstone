@@ -5,6 +5,23 @@ source("modeling/runner.R")
 library(tensorflow)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
+# Testing config:
+modelConfig <- list(
+    initScale = 0.1,
+    learningRate = 1,
+    maxGradientNorm = 1L,
+    numLayers = 1L,
+    hiddenSize = 2L,
+    maxEpoch = 1L,
+    maxMaxEpoch = 1L,
+    keepProb = 1,
+    learningRateDecay = 0.5,
+    vocabSize = 10001L,
+    batchSize = 20L,
+    numSteps = 20L
+)
+
+# Actual config:
 modelConfig <- list(
     initScale = 0.1,
     learningRate = 1,

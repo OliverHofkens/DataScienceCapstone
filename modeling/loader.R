@@ -56,7 +56,16 @@ getWordIds <- function(filename, vocab){
 }
 
 loadVocabulary <- function(){
-    buildVocab('training.txt')
+    vocabFile <- 'data/vocab.rds'
+    if(file.exists(vocabFile)){
+        vocab <- readRDS(vocabFile)
+        return(vocab)
+    }
+    
+    vocab <- buildVocab('training.txt')
+    saveRDS(vocab, vocabFile)
+    
+    vocab
 }
 
 loadModelInputs <- function(){
