@@ -7,7 +7,7 @@ tm_parLapply_engine(parallel::mclapply)
 # Load in the files as a TM corpus:
 getRawCorpus <- function(language){
     dir <- 'data/split'
-    corp <- VCorpus(DirSource(dir, encoding="UTF-8-MAC"), readerControl = list(reader = readPlain, language = language))
+    corp <- VCorpus(DirSource(dir, encoding="UTF-8"), readerControl = list(reader = readPlain, language = language))
 }
 
 # Download and import a list of profane words:

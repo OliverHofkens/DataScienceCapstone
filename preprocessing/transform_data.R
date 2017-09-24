@@ -15,7 +15,7 @@ replaceWithUnkVector <- function(x, commons){
 }
 
 transformData <- function(directory){
-    corp <- VCorpus(DirSource(directory, encoding="UTF-8-MAC"), readerControl = list(reader = readPlain))
+    corp <- VCorpus(DirSource(directory, encoding="UTF-8"), readerControl = list(reader = readPlain))
     
     quantCorp <-  corpus(corp)
     
