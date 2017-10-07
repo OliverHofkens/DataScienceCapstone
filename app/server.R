@@ -2,11 +2,20 @@ library(shiny)
 library(tensorflow)
 library(data.table)
 
-modelDir <- 'model/'
-vocab <- readRDS(paste('model','vocab.rds', sep = "/"))
-#checkpointName <- 'checkpoint'
-#modelName <- 'model-157668.meta'
+modelDir <- 'model'
+checkpointDir <- 'log'
+modelGraph <- 'model-2048540.meta'
+modelValues <- 'model-2048540'
 
+vocab <- readRDS(paste('model','vocab.rds', sep = "/"))
+
+tf$reset_default_graph()
+
+with(tf$Session() %as% sess, {
+    model <- tf$train$import_meta_graph(paste(modelDir, modelGraph, sep = "/"), clear_devices = TRUE)
+    model$restore(sess, paste(modelDir, modelValues, sep="/"))
+})
+#checkpointName <- 'checkpoint'
 #session <- tf$Session()
 #saver <- tf$train$import_meta_graph(paste(modelDir, modelName, sep = ""))
 #saver$restore(session, modelDir)
