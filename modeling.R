@@ -9,7 +9,7 @@ config <- list(
     sequenceLengthWords = 5L,
     strideStep = 3L,
     learningRate = 0.01,
-    batchSize = 100
+    batchSize = 500
     )
 vocabSize <- length(inputs$vocabulary$word)
 
@@ -81,7 +81,6 @@ history <- model %>%
         epochs=1L)
 
 save_model_hdf5(model, 'keras_model.h5')
-model$save('keras_model.h5')
 
 sampleFunction <- function(preds, temperature = 1){
     preds <- log(preds)/temperature
