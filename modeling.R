@@ -42,11 +42,11 @@ input_generator <- function(batch_size) {
         for(i in index:next_index){
             # local dataset index:
             current_i = 1
-            X[current_i,,] <- sapply(inputs$vocabulary$word, function(x){
-                as.integer(x == dataset$sentece[[i]])
+            X[current_i,,] <- sapply(inputs$vocabulary$id, function(x){
+                as.integer(x == dataset$sentence[[i]])
             })
             
-            y[current_i,] <- as.integer(inputs$vocabulary$word == dataset$next_word[[i]])
+            y[current_i,] <- as.integer(inputs$vocabulary$id == dataset$next_word[[i]])
             current_i = current_i + 1
         }
         index <<- next_index
@@ -70,14 +70,18 @@ optimizer <- optimizer_rmsprop(lr = config$learningRate)
 
 model %>% compile(
     loss = "categorical_crossentropy", 
-    optimizer = optimizer
+    optimizer = optimizer,
+    metrics = c('accuracy')
 )
 
 # Training and prediction
-model %>%
+history <- model %>%
     fit_generator(input_generator(batch_size = config$batchSize),
         steps_per_epoch = batchesPerEpoch,
         epochs=1L)
+
+save_model_hdf5(model, 'keras_model.h5')
+model$save('keras_model.h5')
 
 sampleFunction <- function(preds, temperature = 1){
     preds <- log(preds)/temperature
