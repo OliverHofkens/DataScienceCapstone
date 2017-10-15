@@ -1,96 +1,101 @@
 source("modeling/loader.R")
-source("modeling/input.R")
-source("modeling/model.R")
-source("modeling/runner.R")
-library(tensorflow)
+library(purrr)
+library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
-# Testing config:
-modelConfig <- list(
-    initScale = 0.1,
-    learningRate = 1,
-    maxGradientNorm = 1L,
-    numLayers = 1L,
-    hiddenSize = 2L,
-    maxEpoch = 1L,
-    maxMaxEpoch = 1L,
-    keepProb = 1,
-    learningRateDecay = 0.5,
-    vocabSize = 10001L,
-    batchSize = 20L,
-    numSteps = 20L
-)
+config <- list(
+    sequenceLengthWords = 5L,
+    strideStep = 3L,
+    nHiddenLayers = 128,
+    learningRate = 0.05,
+    batchSize = 200,
+    nEpochs = 5
+    )
 
-# Actual config:
-modelConfig <- list(
-    initScale = 0.1,
-    learningRate = 1,
-    maxGradientNorm = 5L,
-    numLayers = 2L,
-    hiddenSize = 200L,
-    maxEpoch = 4L,
-    maxMaxEpoch = 13L,
-    keepProb = 1,
-    learningRateDecay = 0.5,
-    vocabSize = 10001L,
-    batchSize = 20L,
-    numSteps = 20L
-)
+# Data Prep
+inputs <- loadModelInputs()
+input <- c(inputs$train, inputs$validation)
+validation <- c(inputs$test)
+vocab <- inputs$vocabulary
+rm(inputs)
 
-evalConfig <- modelConfig
-evalConfig$batchSize <- 1L
-evalConfig$numSteps <- 1L
-
-rawData <- loadModelInputs()
-detach('package:quanteda')
-
-with(tf$Graph()$as_default(), {
-    initializer = tf$random_uniform_initializer(-1 * modelConfig$initScale, modelConfig$initScale)
+buildDataset <- function(inputVector, config){
+    # Build a strided slice of lengths sequenceLengthWords, with striding step strideStep
+    dataset <- map(
+        seq(1, length(inputVector) - config$sequenceLengthWords - 1L, by = config$strideStep), 
+        ~list(sentence = inputVector[.x:(.x + config$sequenceLengthWords - 1)], next_word = inputVector[.x + config$sequenceLengthWords])
+    )
     
-    with(tf$name_scope("Train"), {
-        trainInput <- LanguageModelInput(modelConfig, rawData$train, "TrainInput")
-        with(tf$variable_scope("Model", reuse=FALSE, initializer=initializer),{
-            m <- LanguageModel(TRUE, modelConfig, trainInput)
-            tf$summary$scalar("Training Loss", m@cost)
-            tf$summary$scalar("Learning Rate", m@learningRate)
-        })
-    })
+    dataset <- transpose(dataset)
     
-    with(tf$name_scope("Valid"), {
-        validInput <- LanguageModelInput(modelConfig, rawData$validation, "ValidationInput")
-        with(tf$variable_scope("Model", reuse=TRUE, initializer=initializer),{
-            mValid <- LanguageModel(FALSE, modelConfig, validInput)
-            tf$summary$scalar("Validation Loss", mValid@cost)
-        })
-    })
+    dataset
+}
+
+input_generator <- function(dataset, vocabulary, config) {
+    vocabSize <- length(vocabulary$word)
     
-    with(tf$name_scope("Test"), {
-        testInput <- LanguageModelInput(evalConfig, rawData$test, "TestInput")
-        with(tf$variable_scope("Model", reuse=TRUE, initializer=initializer),{
-            mTest <- LanguageModel(FALSE, evalConfig, testInput)
-        })
-    })
+    index = 1
     
-    dir.create("log", showWarnings = FALSE)
-    supervisor <- tf$train$Supervisor(logdir=paste(getwd(), 'log', sep = "/"))
-
-    with(supervisor$managed_session() %as% sess, {
-        for(i in seq.int(from = 0L, to = (modelConfig$maxMaxEpoch - 1L))){
-            lrDecay = modelConfig$learningRateDecay ** max(i + 1 - modelConfig$maxEpoch, 0.0)
-            assignLearningRate(m, sess, modelConfig$learningRate * lrDecay)
-
-            cat(sprintf("Epoch: %d Learning rate: %.3f\n", i + 1, sess$run(m@learningRate)))
-            trainPerplexity = runEpoch(sess, m, evalOp=m@trainOp, verbose=TRUE)
-            cat(sprintf("Epoch: %d Train Perplexity: %.3f\n",  i + 1, trainPerplexity))
-
-            validPerplexity = runEpoch(sess, mValid)
-            cat(sprintf("Epoch: %d Valid Perplexity: %.3f\n", i + 1, validPerplexity))
+    # Transform our dataset into the one-hot matrices for the model:
+    # 3-D input (words, sequences, one-hot vocab)
+    X <- array(0, dim = c(config$batchSize, config$sequenceLengthWords, vocabSize))
+    
+    # 2-D output (sequences, one-hot vocab)
+    y <- array(0, dim = c(config$batchSize, vocabSize))
+    
+    function() {
+        # Global dataset indexes:
+        next_index = index+config$batchSize
+        for(i in index:next_index){
+            # local dataset index:
+            current_i = 1
+            X[current_i,,] <- sapply(vocabulary$id, function(x){
+                as.integer(x == dataset$sentence[[i]])
+            })
+            
+            y[current_i,] <- as.integer(vocabulary$id == dataset$next_word[[i]])
+            current_i = current_i + 1
         }
+        index <<- next_index
+        
+        return(list(X,y))
+    }
+}
 
-        testPerplexity = runEpoch(sess, mTest)
-        cat(sprintf("Test Perplexity: %.3f\n", testPerplexity))
+inputDataset <- buildDataset(input, config)
+rm(input)
+validationDataset <- buildDataset(validation, config)
+rm(validation)
 
-        print("Saving model\n")
-        supervisor$saver$save(sess, paste(getwd(), 'model', sep = "/"), global_step=supervisor$global_step)
-    })
-})
+batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
+validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
+
+# Model Definition
+
+model <- keras_model_sequential()
+
+model %>%
+    layer_lstm(config$nHiddenLayers, input_shape = c(config$sequenceLengthWords, length(vocab$id))) %>%
+    layer_dense(length(vocab$id)) %>%
+    layer_activation("softmax")
+
+optimizer <- optimizer_rmsprop(lr = config$learningRate)
+
+model %>% compile(
+    loss = "categorical_crossentropy", 
+    optimizer = optimizer,
+    metrics = c('accuracy')
+)
+
+# Training and prediction
+history <- model %>%
+    fit_generator(
+        generator = input_generator(inputDataset, vocab, config),
+        steps_per_epoch = batchesPerEpoch,
+       # validation_data = input_generator(validationDataset, vocab, config),
+        #validation_steps = validationBatchesPerEpoch,
+        epochs=config$nEpochs)
+
+save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
+rModel <- serialize_model(model, include_optimizer = TRUE)
+saveRDS(rModel, 'keras_model_r.rds')
