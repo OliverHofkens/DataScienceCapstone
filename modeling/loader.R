@@ -2,7 +2,7 @@ library(quanteda)
 library(data.table)
 library(parallel)
 
-Sys.setlocale("LC_ALL", "nl_BE.UTF-8")
+#Sys.setlocale("LC_ALL", "nl_BE.UTF-8")
 
 # Load a corpus from the given filename
 getCorpus <- function(filename){
@@ -15,7 +15,8 @@ getCorpus <- function(filename){
 # Build the document-feature matrix of the contents of given filename
 buildDfm <- function(filename){
     corp <- getCorpus(filename)
-    result <- dfm(corp, what="fastestword")
+    tokens <- tokens(corp, what="fastestword")
+    result <- dfm(tokens)
     dfm_sort(result)
 }
 
