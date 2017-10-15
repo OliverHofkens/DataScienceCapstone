@@ -3,50 +3,57 @@ library(purrr)
 library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
-inputs <- loadModelInputs()
-
 config <- list(
     sequenceLengthWords = 5L,
     strideStep = 3L,
-    learningRate = 0.01,
-    batchSize = 500
+    nHiddenLayers = 128,
+    learningRate = 0.05,
+    batchSize = 200,
+    nEpochs = 5
     )
-vocabSize <- length(inputs$vocabulary$word)
-
 
 # Data Prep
+inputs <- loadModelInputs()
+input <- c(inputs$train, inputs$validation)
+validation <- c(inputs$test)
+vocab <- inputs$vocabulary
+rm(inputs)
 
-input <- inputs$validation
-
-# Build a strided slice of lengths sequenceLengthWords, with striding step strideStep
-dataset <- map(
-        seq(1, length(input) - config$sequenceLengthWords - 1L, by = config$strideStep), 
-        ~list(sentence = input[.x:(.x + config$sequenceLengthWords - 1)], next_word = input[.x + config$sequenceLengthWords])
+buildDataset <- function(inputVector, config){
+    # Build a strided slice of lengths sequenceLengthWords, with striding step strideStep
+    dataset <- map(
+        seq(1, length(inputVector) - config$sequenceLengthWords - 1L, by = config$strideStep), 
+        ~list(sentence = inputVector[.x:(.x + config$sequenceLengthWords - 1)], next_word = inputVector[.x + config$sequenceLengthWords])
     )
+    
+    dataset <- transpose(dataset)
+    
+    dataset
+}
 
-dataset <- transpose(dataset)
-
-input_generator <- function(batch_size) {
+input_generator <- function(dataset, vocabulary, config) {
+    vocabSize <- length(vocabulary$word)
+    
     index = 1
     
     # Transform our dataset into the one-hot matrices for the model:
     # 3-D input (words, sequences, one-hot vocab)
-    X <- array(0, dim = c(batch_size, config$sequenceLengthWords, vocabSize))
+    X <- array(0, dim = c(config$batchSize, config$sequenceLengthWords, vocabSize))
     
     # 2-D output (sequences, one-hot vocab)
-    y <- array(0, dim = c(batch_size, vocabSize))
+    y <- array(0, dim = c(config$batchSize, vocabSize))
     
     function() {
         # Global dataset indexes:
-        next_index = index+batch_size
+        next_index = index+config$batchSize
         for(i in index:next_index){
             # local dataset index:
             current_i = 1
-            X[current_i,,] <- sapply(inputs$vocabulary$id, function(x){
+            X[current_i,,] <- sapply(vocabulary$id, function(x){
                 as.integer(x == dataset$sentence[[i]])
             })
             
-            y[current_i,] <- as.integer(inputs$vocabulary$id == dataset$next_word[[i]])
+            y[current_i,] <- as.integer(vocabulary$id == dataset$next_word[[i]])
             current_i = current_i + 1
         }
         index <<- next_index
@@ -55,15 +62,21 @@ input_generator <- function(batch_size) {
     }
 }
 
-batchesPerEpoch <- floor(length(dataset$sentence) / config$batchSize)
+inputDataset <- buildDataset(input, config)
+rm(input)
+validationDataset <- buildDataset(validation, config)
+rm(validation)
+
+batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
+validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
 # Model Definition
 
 model <- keras_model_sequential()
 
 model %>%
-    layer_lstm(128, input_shape = c(config$sequenceLengthWords, vocabSize)) %>%
-    layer_dense(vocabSize) %>%
+    layer_lstm(config$nHiddenLayers, input_shape = c(config$sequenceLengthWords, length(vocab$id))) %>%
+    layer_dense(length(vocab$id)) %>%
     layer_activation("softmax")
 
 optimizer <- optimizer_rmsprop(lr = config$learningRate)
@@ -76,18 +89,13 @@ model %>% compile(
 
 # Training and prediction
 history <- model %>%
-    fit_generator(input_generator(batch_size = config$batchSize),
+    fit_generator(
+        generator = input_generator(inputDataset, vocab, config),
         steps_per_epoch = batchesPerEpoch,
-        epochs=1L)
+       # validation_data = input_generator(validationDataset, vocab, config),
+        #validation_steps = validationBatchesPerEpoch,
+        epochs=config$nEpochs)
 
-save_model_hdf5(model, 'keras_model.h5')
-
-sampleFunction <- function(preds, temperature = 1){
-    preds <- log(preds)/temperature
-    exp_preds <- exp(preds)
-    preds <- exp_preds/sum(exp(preds))
-    
-    rmultinom(1, 1, preds) %>% 
-        as.integer() %>%
-        which.max()
-}
+save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
+rModel <- serialize_model(model, include_optimizer = TRUE)
+saveRDS(rModel, 'keras_model_r.rds')
