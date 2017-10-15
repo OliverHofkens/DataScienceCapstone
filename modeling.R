@@ -5,7 +5,7 @@ use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
     sequenceLengthWords = 3L,
-    strideStep = 1L,
+    strideStep = 2L,
     nHiddenLayers = 512,
     learningRate = 0.01,
     batchSize = 100,
@@ -15,7 +15,7 @@ config <- list(
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- inputs$train[1:1000]
+input <- inputs$train
 #validation <- c(inputs$test)
 vocab <- inputs$vocabulary
 #rm(inputs)
@@ -46,12 +46,12 @@ input_generator <- function(dataset, vocabulary, config) {
     
     function() {
         # Global dataset indexes:
-        next_index = index+config$batchSize - 1
+        next_index = index + config$batchSize - 1
         
         # If we reached the end, start over at a random spot between 1 and config$strideStep
         if(next_index > length(dataset$sentence)){
             index <<- sample(1:config$strideStep, 1)
-            next_index <- index+config$batchSize
+            next_index <- index + config$batchSize - 1
         }
         
         # local dataset index:
@@ -71,7 +71,7 @@ input_generator <- function(dataset, vocabulary, config) {
 }
 
 inputDataset <- buildDataset(input, config)
-#rm(input)
+rm(input)
 #validationDataset <- buildDataset(validation, config)
 #rm(validation)
 
