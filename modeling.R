@@ -4,19 +4,19 @@ library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
-    sequenceLengthWords = 5L,
-    strideStep = 3L,
-    nHiddenLayers = 128,
-    learningRate = 0.05,
-    batchSize = 500,
-    nEpochs = 3,
+    sequenceLengthWords = 3L,
+    strideStep = 2L,
+    nHiddenLayers = 512,
+    learningRate = 0.01,
+    batchSize = 100,
+    nEpochs = 5,
     trainMaxQueueSize = 10
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- c(inputs$train, inputs$validation)
-validation <- c(inputs$test)
+input <- inputs$train
+#validation <- c(inputs$test)
 vocab <- inputs$vocabulary
 rm(inputs)
 
@@ -46,23 +46,23 @@ input_generator <- function(dataset, vocabulary, config) {
     
     function() {
         # Global dataset indexes:
-        next_index = index+config$batchSize
+        next_index = index + config$batchSize - 1
         
         # If we reached the end, start over at a random spot between 1 and config$strideStep
-        if(next_index > length(dataset)){
+        if(next_index > length(dataset$sentence)){
             index <<- sample(1:config$strideStep, 1)
-            next_index <- index+config$batchSize
+            next_index <- index + config$batchSize - 1
         }
         
+        # local dataset index:
+        current_i = 1
         for(i in index:next_index){
-            # local dataset index:
-            current_i = 1
             X[current_i,,] <- sapply(vocabulary$id, function(x){
                 as.integer(x == dataset$sentence[[i]])
             })
             
             y[current_i,] <- as.integer(vocabulary$id == dataset$next_word[[i]])
-            current_i = current_i + 1
+            current_i <- current_i + 1
         }
         index <<- next_index
         
@@ -73,7 +73,7 @@ input_generator <- function(dataset, vocabulary, config) {
 inputDataset <- buildDataset(input, config)
 rm(input)
 #validationDataset <- buildDataset(validation, config)
-rm(validation)
+#rm(validation)
 
 batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
 #validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
@@ -87,11 +87,9 @@ model %>%
     layer_dense(length(vocab$id)) %>%
     layer_activation("softmax")
 
-optimizer <- optimizer_rmsprop(lr = config$learningRate)
-
 model %>% compile(
     loss = "categorical_crossentropy", 
-    optimizer = optimizer,
+    optimizer = optimizer_rmsprop(lr = config$learningRate),
     metrics = c('accuracy')
 )
 
@@ -99,7 +97,7 @@ model %>% compile(
 history <- model %>%
     fit_generator(
         generator = input_generator(inputDataset, vocab, config),
-        steps_per_epoch = 1000, # batchesPerEpoch, # Replaced to speed up initial model dev
+        steps_per_epoch = batchesPerEpoch,
         max_queue_size = config$trainMaxQueueSize,
         epochs=config$nEpochs)
 
