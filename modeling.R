@@ -106,3 +106,4 @@ history <- model %>%
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
 rModel <- serialize_model(model, include_optimizer = TRUE)
 saveRDS(rModel, 'keras_model_r.rds')
+saveRDS(history, 'history.rds')
