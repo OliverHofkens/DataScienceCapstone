@@ -8,8 +8,9 @@ config <- list(
     strideStep = 3L,
     nHiddenLayers = 128,
     learningRate = 0.05,
-    batchSize = 200,
-    nEpochs = 5
+    batchSize = 100,
+    nEpochs = 3,
+    trainMaxQueueSize = 10
     )
 
 # Data Prep
@@ -46,6 +47,13 @@ input_generator <- function(dataset, vocabulary, config) {
     function() {
         # Global dataset indexes:
         next_index = index+config$batchSize
+        
+        # If we reached the end, start over at a random spot between 1 and config$strideStep
+        if(next_index > length(dataset)){
+            index <<- sample(1:config$strideStep, 1)
+            next_index <- index+config$batchSize
+        }
+        
         for(i in index:next_index){
             # local dataset index:
             current_i = 1
@@ -64,11 +72,11 @@ input_generator <- function(dataset, vocabulary, config) {
 
 inputDataset <- buildDataset(input, config)
 rm(input)
-validationDataset <- buildDataset(validation, config)
+#validationDataset <- buildDataset(validation, config)
 rm(validation)
 
 batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
-validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
+#validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
 # Model Definition
 
@@ -92,8 +100,7 @@ history <- model %>%
     fit_generator(
         generator = input_generator(inputDataset, vocab, config),
         steps_per_epoch = batchesPerEpoch,
-       # validation_data = input_generator(validationDataset, vocab, config),
-        #validation_steps = validationBatchesPerEpoch,
+        max_queue_size = config$trainMaxQueueSize,
         epochs=config$nEpochs)
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
