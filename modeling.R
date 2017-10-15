@@ -8,7 +8,7 @@ config <- list(
     strideStep = 3L,
     nHiddenLayers = 128,
     learningRate = 0.05,
-    batchSize = 100,
+    batchSize = 500,
     nEpochs = 3,
     trainMaxQueueSize = 10
     )
@@ -99,7 +99,7 @@ model %>% compile(
 history <- model %>%
     fit_generator(
         generator = input_generator(inputDataset, vocab, config),
-        steps_per_epoch = batchesPerEpoch,
+        steps_per_epoch = 1000, # batchesPerEpoch, # Replaced to speed up initial model dev
         max_queue_size = config$trainMaxQueueSize,
         epochs=config$nEpochs)
 
