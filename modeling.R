@@ -1,21 +1,22 @@
 source("modeling/loader.R")
+library(data.table)
 library(purrr)
 library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
-    sequenceLengthWords = 3L,
+    sequenceLengthWords = 4L,
     strideStep = 2L,
     nHiddenLayers = 512,
     learningRate = 0.01,
     batchSize = 100,
-    nEpochs = 5,
+    nEpochs = 100,
     trainMaxQueueSize = 10
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- inputs$train
+input <- inputs$train[1:1000]
 #validation <- c(inputs$test)
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -32,10 +33,10 @@ buildDataset <- function(inputVector, config){
     dataset
 }
 
-input_generator <- function(dataset, vocabulary, config) {
+inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
     vocabSize <- length(vocabulary$word)
     
-    index = 1
+    index = startAt
     
     # Transform our dataset into the one-hot matrices for the model:
     # 3-D input (words, sequences, one-hot vocab)
@@ -75,14 +76,31 @@ rm(input)
 #validationDataset <- buildDataset(validation, config)
 #rm(validation)
 
-batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
+batchesPerEpoch <- 1000
+#batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
 #validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
-# Model Definition
+modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
+checkpointFiles <- list.files(pattern=glob2rx("model.*.hdf5"))
 
+if(length(checkpointFiles) > 0){
+    checkpointFiles <- sort(checkpointFiles, decreasing = TRUE)
+    checkpoint <- checkpointFiles[1]
+    
+    model <- load_model_hdf5(checkpoint)
+    
+    matches <- regmatches(checkpoint, regexec(modelPattern, checkpoint))
+    startEpoch <- as.integer(matches[[1]][[2]]) + 1
+} else {
+    startEpoch <- 1
+}
+startAtSample = batchesPerEpoch * startEpoch * config$batchSize
+
+# Model Definition
 model <- keras_model_sequential()
 
 model %>%
+    layer_masking(mask_value = 0, input_shape = list(NULL, length(vocab$id))) %>%
     layer_lstm(config$nHiddenLayers, input_shape = c(config$sequenceLengthWords, length(vocab$id))) %>%
     layer_dense(length(vocab$id)) %>%
     layer_activation("softmax")
@@ -96,10 +114,15 @@ model %>% compile(
 # Training and prediction
 history <- model %>%
     fit_generator(
-        generator = input_generator(inputDataset, vocab, config),
+        generator = input_generator(inputDataset, vocab, config, startAt=startAtSample),
         steps_per_epoch = batchesPerEpoch,
         max_queue_size = config$trainMaxQueueSize,
-        epochs=config$nEpochs)
+        epochs=config$nEpochs, 
+        initial_epoch = startEpoch#,
+        #callbacks = list(
+        #    callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5")
+        #)
+        )
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
 rModel <- serialize_model(model, include_optimizer = TRUE)

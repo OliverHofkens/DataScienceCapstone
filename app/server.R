@@ -15,10 +15,9 @@ shinyServer(function(input, output) {
     output$predictions <- renderPrint({
         text <- tolower(input$text_input)
         words <- unlist(strsplit(text, " ", fixed = TRUE))
-        words <- tail(words, n=5)
-        ids <- getWordIds(words)
+        words <- tail(words, n=3)
         
-        prediction <- predict_next_ids(ids)
-        print(getWordForId(prediction))
+        prediction <- predictOnText(model, vocab,words)
+        print(prediction)
     })
 })
