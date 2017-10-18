@@ -19,20 +19,22 @@ getWordIds <- function(vocab, words){
 }
 
 predictNextId <- function(model, vocab, ids){
-    input <- sapply(vocab$id, function(x){
-        as.integer(x == ids)
-    })
-    dim(input) <- c(1, dim(input))
+    #input <- sapply(vocab$id, function(x){
+    #    as.integer(x == ids)
+    #})
+    ids <- matrix(ids, nrow = 1)
     
-    preds <- predict(model, input)
+    preds <- predict(model, ids)
     
     preds <- log(preds)
     exp_preds <- exp(preds)
-    preds = exp_preds / sum(exp_preds)
+    preds <- exp_preds / sum(exp_preds)
     
+    # Returns the INDEX of the prediction, not the ID!
+    # So we subtract 1 (offset of 0-masking)
     rmultinom(1, 1, preds) %>% 
         as.integer() %>%
-        which.max()
+        which.max() - 1
 }
 
 getWordForId <- function(vocab, ids){

@@ -4,19 +4,22 @@ library(purrr)
 library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
+# TODO: Add embedding layer???
+# TODO: Add multiple LSTM layers and Dropout???
+
 config <- list(
-    sequenceLengthWords = 4L,
+    sequenceLengthWords = 5L,
     strideStep = 2L,
-    nHiddenLayers = 512,
+    nHiddenLayers = 256,
     learningRate = 0.01,
     batchSize = 100,
-    nEpochs = 100,
+    nEpochs = 50,
     trainMaxQueueSize = 10
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- inputs$train[1:1000]
+input <- inputs$train[1:10000]
 #validation <- c(inputs$test)
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -34,13 +37,15 @@ buildDataset <- function(inputVector, config){
 }
 
 inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
-    vocabSize <- length(vocabulary$word)
+    # Add 1 as 0 is reserved for masking unused inputs
+    vocabSize <- length(vocabulary$word) + 1
     
     index = startAt
     
     # Transform our dataset into the one-hot matrices for the model:
     # 3-D input (words, sequences, one-hot vocab)
-    X <- array(0, dim = c(config$batchSize, config$sequenceLengthWords, vocabSize))
+   #X <- array(0, dim = c(config$batchSize, config$sequenceLengthWords, vocabSize))
+    X <- array(0, dim = c(config$batchSize, config$sequenceLengthWords))
     
     # 2-D output (sequences, one-hot vocab)
     y <- array(0, dim = c(config$batchSize, vocabSize))
@@ -58,11 +63,13 @@ inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
         # local dataset index:
         current_i = 1
         for(i in index:next_index){
-            X[current_i,,] <- sapply(vocabulary$id, function(x){
-                as.integer(x == dataset$sentence[[i]])
-            })
-            
-            y[current_i,] <- as.integer(vocabulary$id == dataset$next_word[[i]])
+            #X[current_i,,] <- sapply(vocabulary$id, function(x){
+            #    as.integer(x == dataset$sentence[[i]])
+            #})
+            X[current_i,] <- dataset$sentence[[i]]
+                    
+            # Add a 0 in front, to be used when masking unused inputs
+            y[current_i,] <- c(0, as.integer(vocabulary$id == dataset$next_word[[i]]))
             current_i <- current_i + 1
         }
         index <<- next_index
@@ -77,7 +84,7 @@ rm(input)
 #rm(validation)
 
 batchesPerEpoch <- 1000
-#batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
+batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
 #validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
 modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
@@ -95,14 +102,17 @@ if(length(checkpointFiles) > 0){
     startEpoch <- 1
 }
 startAtSample = batchesPerEpoch * startEpoch * config$batchSize
+startAtSample = 1
 
 # Model Definition
 model <- keras_model_sequential()
 
 model %>%
-    layer_masking(mask_value = 0, input_shape = list(NULL, length(vocab$id))) %>%
-    layer_lstm(config$nHiddenLayers, input_shape = c(config$sequenceLengthWords, length(vocab$id))) %>%
-    layer_dense(length(vocab$id)) %>%
+    layer_embedding(length(vocab$id) + 1, 128, input_length = config$sequenceLengthWords, mask_zero = TRUE) %>%
+    layer_lstm(config$nHiddenLayers, return_sequences = TRUE) %>%
+    layer_dropout(0.1) %>%
+    layer_lstm(config$nHiddenLayers) %>%
+    layer_dense(length(vocab$id) + 1) %>%
     layer_activation("softmax")
 
 model %>% compile(
@@ -114,7 +124,7 @@ model %>% compile(
 # Training and prediction
 history <- model %>%
     fit_generator(
-        generator = input_generator(inputDataset, vocab, config, startAt=startAtSample),
+        generator = inputGenerator(inputDataset, vocab, config, startAt=startAtSample),
         steps_per_epoch = batchesPerEpoch,
         max_queue_size = config$trainMaxQueueSize,
         epochs=config$nEpochs, 
