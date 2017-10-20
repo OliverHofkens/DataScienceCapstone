@@ -33,7 +33,7 @@ buildVocab <- function(filename){
 
 # Translate a word to an ID (based on dictionary vocab)
 wordToId <- function(word, vocab){
-    vocab[.(word)]$id
+    vocab[word, on='word']$id
 }
 
 # Tokenize a file
@@ -46,7 +46,7 @@ getTokens <- function(filename){
 # Translate a file into IDs
 getWordIds <- function(filename, vocab){
     tokens <- getTokens(filename)
-    ids <- vocab[.(tokens)]$id
+    ids <- vocab[tokens, on='word']$id
     
     unk <- vocab[vocab$word == "<unk>"]$id
     

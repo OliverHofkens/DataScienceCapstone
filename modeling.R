@@ -4,22 +4,19 @@ library(purrr)
 library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
-# TODO: Add embedding layer???
-# TODO: Add multiple LSTM layers and Dropout???
-
 config <- list(
     sequenceLengthWords = 5L,
     strideStep = 2L,
     nHiddenLayers = 256,
     learningRate = 0.01,
     batchSize = 100,
-    nEpochs = 50,
-    trainMaxQueueSize = 10
+    nEpochs = 20,
+    trainMaxQueueSize = 20
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- inputs$train[1:10000]
+input <- inputs$train
 #validation <- c(inputs$test)
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -83,7 +80,7 @@ rm(input)
 #validationDataset <- buildDataset(validation, config)
 #rm(validation)
 
-batchesPerEpoch <- 1000
+batchesPerEpoch <- 10000
 batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
 #validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
@@ -97,12 +94,11 @@ if(length(checkpointFiles) > 0){
     model <- load_model_hdf5(checkpoint)
     
     matches <- regmatches(checkpoint, regexec(modelPattern, checkpoint))
-    startEpoch <- as.integer(matches[[1]][[2]]) + 1
+    startEpoch <- as.integer(matches[[1]][[2]]) 
 } else {
-    startEpoch <- 1
+    startEpoch <- 0L
 }
-startAtSample = batchesPerEpoch * startEpoch * config$batchSize
-startAtSample = 1
+startAtSample = (batchesPerEpoch * startEpoch * config$batchSize) + 1
 
 # Model Definition
 model <- keras_model_sequential()
@@ -128,10 +124,10 @@ history <- model %>%
         steps_per_epoch = batchesPerEpoch,
         max_queue_size = config$trainMaxQueueSize,
         epochs=config$nEpochs, 
-        initial_epoch = startEpoch#,
-        #callbacks = list(
-        #    callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5")
-        #)
+        initial_epoch = startEpoch,
+        callbacks = list(
+            callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5")
+        )
         )
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
