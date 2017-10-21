@@ -16,7 +16,7 @@ config <- list(
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- inputs$train
+input <- inputs$train[1:10000]
 #validation <- c(inputs$test)
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -80,7 +80,7 @@ rm(input)
 #validationDataset <- buildDataset(validation, config)
 #rm(validation)
 
-batchesPerEpoch <- 10000
+batchesPerEpoch <- 1000
 batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
 #validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
