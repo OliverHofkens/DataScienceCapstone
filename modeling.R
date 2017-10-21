@@ -8,7 +8,7 @@ config <- list(
     sequenceLengthWords = 5L,
     strideStep = 2L,
     nHiddenLayers = 256,
-    learningRate = 0.01,
+    learningRate = 0.001,
     batchSize = 100,
     nEpochs = 20,
     trainMaxQueueSize = 20
@@ -16,7 +16,7 @@ config <- list(
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- inputs$train[1:10000]
+input <- inputs$train[1:100000]
 #validation <- c(inputs$test)
 vocab <- inputs$vocabulary
 rm(inputs)
