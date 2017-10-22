@@ -1,3 +1,0 @@
-printf <- function(...) {
-    cat(sprintf(...))
-}

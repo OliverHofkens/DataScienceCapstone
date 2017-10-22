@@ -6,17 +6,17 @@ use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
     sequenceLengthWords = 5L,
-    strideStep = 2L,
+    strideStep = 1L,
     nHiddenLayers = 256,
-    learningRate = 0.001,
+    learningRate = 0.01,
     batchSize = 100,
-    nEpochs = 150,
+    nEpochs = 10,
     trainMaxQueueSize = 20
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- inputs$train[1:100000]
+input <- inputs$train[1:1000000]
 #validation <- c(inputs$test)
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -80,7 +80,6 @@ rm(input)
 #validationDataset <- buildDataset(validation, config)
 #rm(validation)
 
-batchesPerEpoch <- 1000
 batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
 #validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
@@ -126,7 +125,8 @@ history <- model %>%
         epochs=config$nEpochs, 
         initial_epoch = startEpoch,
         callbacks = list(
-            callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5")
+            callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5"),
+            callback_reduce_lr_on_plateau(factor=0.1,patience=2)
         )
         )
 

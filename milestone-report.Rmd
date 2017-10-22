@@ -37,7 +37,7 @@ nWords <- ntoken(corp)
 * The tweets contain a total of `r nSentences[3]` sentences, containing `r nWords[3]` words.  
 
 Even though the tweets dataset is the smallest, it contains the largest number of
-sentences, with a relative low amount of words. This can be attributed to the maximum 
+sentences, with a relatively low amount of words. This can be attributed to the maximum 
 of 140 characters in a tweet.  
 
 Let's take a closer look at our data, which words and/or symbols appear the most 
@@ -48,12 +48,13 @@ docFeatureMatrix <- dfm(corp)
 textplot_wordcloud(docFeatureMatrix, comparison = TRUE, title.size=1, max.words=200)
 ```
 
-This wordcloud actually tells us a lot:
-* On Twitter, people like to shout (!), ask questions (?), and have personal conversations (you, I).
-* News articles often quote others (said, quotation marks), mainly important people (president, officials)
-* Blog posts are less predictable, showing more general language features (and, of, to)
+This wordcloud actually tells us a lot about our data:  
 
-Let's have a look at the total word counts accross the datasets:
+* On Twitter, people like to shout (!), ask questions (?), and have personal conversations (you, I)  
+* News articles often quote others (said, quotation marks), mainly important people (president, officials)  
+* Blog posts are less predictable, showing more general language features (and, of, to)  
+  
+Let's have a look at the total word counts accross the datasets:  
 
 ```{r}
 topFeats <- topfeatures(docFeatureMatrix, n = 50)
@@ -67,3 +68,25 @@ ggplot(df, aes(x = df$word, y = df$count)) +
     xlab("Word or Symbol") + 
     ylab("Count")
 ```
+
+This graph actually matches really well to other word counts for the English 
+language, such as this graph of Zipf's law, applied to the contents of English Wikipedia:  
+![Zipf's law for English Wikipedia pages](http://wugology.com/wp-content/uploads/2014/07/zipfwiki.png)
+
+## Modeling Preparations
+
+The model should be computationally efficient, so the goal is to get a high 
+prediction accuracy, without building a complete and correct language model.  
+To get to that goal, I intend to do the following preprocessing steps:  
+
+* Lowercase all text. The model will not care about capitalization.
+* Remove numbers, or replace them with some sort of number marker. Learning numbers
+in sentences is not productive as they will almost always change.
+* Remove in-sentence punctuation, such as commas and quotation marks. The model
+ does not care about style.
+* Replace end-of-sentence punctuation (!.?) with a single 'end-of-string' marker. This 
+will allow the model to recognize the ends of sentences, without being too specific.
+* Replace swearing, cursing, and other bad words (course requirement).
+* Keep only the 10000 most frequent words, and replace the rest with an 'unk' marker.
+This allows for a more efficient model, and during prediction we still have a grasp 
+of how many words we DON'T know.
