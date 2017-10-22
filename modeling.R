@@ -10,7 +10,7 @@ config <- list(
     nHiddenLayers = 256,
     learningRate = 0.001,
     batchSize = 100,
-    nEpochs = 20,
+    nEpochs = 150,
     trainMaxQueueSize = 20
     )
 

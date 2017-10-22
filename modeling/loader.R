@@ -2,7 +2,7 @@ library(quanteda)
 library(data.table)
 library(parallel)
 
-#Sys.setlocale("LC_ALL", "nl_BE.UTF-8")
+Sys.setlocale("LC_ALL", "nl_BE.UTF-8")
 
 # Load a corpus from the given filename
 getCorpus <- function(filename){

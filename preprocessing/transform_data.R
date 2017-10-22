@@ -1,3 +1,4 @@
+library(tm)
 library(quanteda)
 
 # Replace rare words with '<unk>'
@@ -14,8 +15,8 @@ replaceWithUnkVector <- function(x, commons){
     sapply(x, replaceWithUnk, commons = commons)
 }
 
-transformData <- function(directory){
-    corp <- VCorpus(DirSource(directory, encoding="UTF-8"), readerControl = list(reader = readPlain))
+transformData <- function(data_dir){
+    corp <- VCorpus(DirSource(data_dir, encoding="UTF-8"), readerControl = list(reader = readPlain))
     
     quantCorp <-  corpus(corp)
     
@@ -29,7 +30,7 @@ transformData <- function(directory){
     newCorpus <- tm_map(corp, content_transformer(replaceWithUnkVector), commons = commonWords, mc.cores=7)
     
     # Write the new corpus to txt files:
-    directory <- 'data/model_input'
-    dir.create(directory, showWarnings = FALSE, recursive = TRUE)
-    writeCorpus(newCorpus, directory, filenames = c('test.txt','training.txt', 'validation.txt'))
+    newDir <- 'data/model_input'
+    dir.create(newDir, showWarnings = FALSE, recursive = TRUE)
+    writeCorpus(newCorpus, newDir, filenames = c('test.txt','training.txt', 'validation.txt'))
 }
