@@ -7,9 +7,9 @@ config <- list(
     sequenceLengthWords = 5L,
     strideStep = 3L,
     nHiddenLayers = 256,
-    learningRate = 0.01,
+    learningRate = 0.005,
     batchSize = 100,
-    nEpochs = 10,
+    nEpochs = 2,
     trainMaxQueueSize = 20
     )
 
@@ -63,7 +63,6 @@ inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
 }
 
 batchesPerEpoch <- floor(length(train) / (config$batchSize * config$strideStep + config$sequenceLengthWords))
-#validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
 modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
 checkpointFiles <- list.files(pattern=glob2rx("model.*.hdf5"))
@@ -79,7 +78,6 @@ if(length(checkpointFiles) > 0){
 } else {
     startEpoch <- 0L
 }
-startAtSample = (batchesPerEpoch * startEpoch * config$batchSize) + 1
 
 # Model Definition
 model <- keras_model_sequential()
@@ -101,16 +99,15 @@ model %>% compile(
 # Training and prediction
 history <- model %>%
     fit_generator(
-        generator = inputGenerator(inputDataset, vocab, config, startAt=startAtSample),
+        generator = inputGenerator(train, vocab, config),
         steps_per_epoch = batchesPerEpoch,
         max_queue_size = config$trainMaxQueueSize,
         epochs=config$nEpochs, 
         initial_epoch = startEpoch,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5"),
-            callback_reduce_lr_on_plateau(factor=0.1,patience=2)
-        )
-        )
+            callback_reduce_lr_on_plateau(monitor = "loss",factor = 0.1, patience = 2)
+        ))
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
 rModel <- serialize_model(model, include_optimizer = TRUE)
