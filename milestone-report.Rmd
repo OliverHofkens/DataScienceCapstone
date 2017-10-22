@@ -1,0 +1,69 @@
+---
+title: "Capstone Milestone Report"
+author: "Oliver Hofkens"
+date: "10/22/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tm)
+library(quanteda)
+library(ggplot2)
+Sys.setlocale("LC_ALL", "nl_BE.UTF-8")
+```
+
+This milestone report will provide some basic data exploration, and outline the 
+process of cleaning the data before building a model. Four datasets containing 
+blog posts, news articles and tweets were made available: German, English, Finnish,
+and Russian. I chose to explore the English dataset.
+
+## Data Exploration
+
+We are presented with 200MB of blog post text, 196MB of news articles, and 159MB
+of tweets. Those sizes may not say much, so let's look at some counts:
+
+```{r, cache=TRUE}
+# Read the corpus in with tm, then transform it to a Quanteda corpus.
+corp <-VCorpus(DirSource('data/raw/final/en_US', encoding="UTF-8"), readerControl = list(reader = readPlain))
+corp <- corpus(corp)
+nSentences <- nsentence(corp)
+nWords <- ntoken(corp)
+```
+
+* The blogposts contain a total of `r nSentences[1]` sentences, containing `r nWords[1]` words.  
+* The news articles contain `r nSentences[2]` sentences, with `r nWords[2]` words.  
+* The tweets contain a total of `r nSentences[3]` sentences, containing `r nWords[3]` words.  
+
+Even though the tweets dataset is the smallest, it contains the largest number of
+sentences, with a relative low amount of words. This can be attributed to the maximum 
+of 140 characters in a tweet.  
+
+Let's take a closer look at our data, which words and/or symbols appear the most 
+in each of the datasets?
+
+```{r, cache=TRUE}
+docFeatureMatrix <- dfm(corp)
+textplot_wordcloud(docFeatureMatrix, comparison = TRUE, title.size=1, max.words=200)
+```
+
+This wordcloud actually tells us a lot:
+* On Twitter, people like to shout (!), ask questions (?), and have personal conversations (you, I).
+* News articles often quote others (said, quotation marks), mainly important people (president, officials)
+* Blog posts are less predictable, showing more general language features (and, of, to)
+
+Let's have a look at the total word counts accross the datasets:
+
+```{r}
+topFeats <- topfeatures(docFeatureMatrix, n = 50)
+df <- data.frame(word = names(topFeats), count = topFeats)
+df$word <- as.factor(df$word)
+df$word <- reorder(df$word, -df$count)
+
+ggplot(df, aes(x = df$word, y = df$count)) +
+    geom_col() +
+    theme(axis.text.x=element_text(angle=90,hjust=1,vjust=0.5)) +
+    xlab("Word or Symbol") + 
+    ylab("Count")
+```
