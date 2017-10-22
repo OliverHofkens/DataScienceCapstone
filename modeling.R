@@ -1,12 +1,11 @@
 source("modeling/loader.R")
 library(data.table)
-library(purrr)
 library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
     sequenceLengthWords = 5L,
-    strideStep = 1L,
+    strideStep = 3L,
     nHiddenLayers = 256,
     learningRate = 0.01,
     batchSize = 100,
@@ -16,71 +15,54 @@ config <- list(
 
 # Data Prep
 inputs <- loadModelInputs()
-input <- inputs$train[1:1000000]
-#validation <- c(inputs$test)
+train <- inputs$train
+#validation <- inputs$validation
+#test <- inputs$test
 vocab <- inputs$vocabulary
 rm(inputs)
-
-buildDataset <- function(inputVector, config){
-    # Build a strided slice of lengths sequenceLengthWords, with striding step strideStep
-    dataset <- map(
-        seq(1, length(inputVector) - config$sequenceLengthWords - 1L, by = config$strideStep), 
-        ~list(sentence = inputVector[.x:(.x + config$sequenceLengthWords - 1)], next_word = inputVector[.x + config$sequenceLengthWords])
-    )
-    
-    dataset <- transpose(dataset)
-    
-    dataset
-}
 
 inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
     # Add 1 as 0 is reserved for masking unused inputs
     vocabSize <- length(vocabulary$word) + 1
+    stride <- config$strideStep
+    seqLength <- config$sequenceLengthWords
+    batchSize <- config$batchSize
     
     index = startAt
     
-    # Transform our dataset into the one-hot matrices for the model:
-    # 3-D input (words, sequences, one-hot vocab)
-   #X <- array(0, dim = c(config$batchSize, config$sequenceLengthWords, vocabSize))
-    X <- array(0, dim = c(config$batchSize, config$sequenceLengthWords))
+    # Input = (batchSize x Sequence Length)
+    # Will be converted to Embedding by model.
+    X <- array(0, dim = c(batchSize, seqLength))
     
-    # 2-D output (sequences, one-hot vocab)
-    y <- array(0, dim = c(config$batchSize, vocabSize))
+    # 2-D output (batchSize x one-hot vocab)
+    Y <- array(0, dim = c(batchSize, seqLength))
     
     function() {
-        # Global dataset indexes:
-        next_index = index + config$batchSize - 1
+        nextIndex <-  index + (batchSize * stride) - 1
         
-        # If we reached the end, start over at a random spot between 1 and config$strideStep
-        if(next_index > length(dataset$sentence)){
-            index <<- sample(1:config$strideStep, 1)
-            next_index <- index + config$batchSize - 1
+        # If we reached the end, start over at a random spot
+        if(nextIndex + seqLength > length(dataset)){
+            index <<- sample(1:stride, 1)
+            nextIndex <- index + (batchSize * stride) - 1
         }
         
-        # local dataset index:
-        current_i = 1
-        for(i in index:next_index){
-            #X[current_i,,] <- sapply(vocabulary$id, function(x){
-            #    as.integer(x == dataset$sentence[[i]])
-            #})
-            X[current_i,] <- dataset$sentence[[i]]
-                    
+        X <<- sapply(seq(index, nextIndex, by = stride), function(i) {dataset[i:(i + seqLength - 1L)]})
+        X <<- t(X)
+        
+        Y <<- sapply(seq(index, nextIndex, by = stride), function(i) {dataset[i + seqLength]})
+        Y <<- sapply(Y, function(yi){
             # Add a 0 in front, to be used when masking unused inputs
-            y[current_i,] <- c(0, as.integer(vocabulary$id == dataset$next_word[[i]]))
-            current_i <- current_i + 1
-        }
-        index <<- next_index
+            c(0, as.integer(vocab$id == yi))
+        })
+        Y <<- t(Y)
         
-        return(list(X,y))
+        index <<- nextIndex
+    
+        return(list(X,Y))
     }
 }
 
-inputDataset <- buildDataset(input, config)
-rm(input)
-#validationDataset <- buildDataset(validation, config)
-#rm(validation)
-
-batchesPerEpoch <- floor(length(inputDataset$sentence) / config$batchSize)
+batchesPerEpoch <- floor(length(train) / (config$batchSize * config$strideStep + config$sequenceLengthWords))
 #validationBatchesPerEpoch <- floor(length(validationDataset$sentence) / config$batchSize)
 
 modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
