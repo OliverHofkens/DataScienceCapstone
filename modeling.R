@@ -5,17 +5,17 @@ use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
     sequenceLengthWords = 5L,
-    strideStep = 3L,
-    nHiddenLayers = 256,
-    learningRate = 0.005,
+    strideStep = 1L,
+    nHiddenLayers = 512,
+    learningRate = 0.01,
     batchSize = 100,
-    nEpochs = 2,
+    nEpochs = 100,
     trainMaxQueueSize = 20
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train
+train <- inputs$train[1:10000000]
 #validation <- inputs$validation
 #test <- inputs$test
 vocab <- inputs$vocabulary
@@ -40,9 +40,9 @@ inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
     function() {
         nextIndex <-  index + (batchSize * stride) - 1
         
-        # If we reached the end, start over at a random spot
-        if(nextIndex + seqLength > length(dataset)){
-            index <<- sample(1:stride, 1)
+        # If we reached the end (+ prediction), start over:
+        if(nextIndex + seqLength + 1 > length(dataset)){
+            index <<- 1
             nextIndex <- index + (batchSize * stride) - 1
         }
         
@@ -56,13 +56,15 @@ inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
         })
         Y <<- t(Y)
         
-        index <<- nextIndex
+        index <<- nextIndex + 1
     
         return(list(X,Y))
     }
 }
 
-batchesPerEpoch <- floor(length(train) / (config$batchSize * config$strideStep + config$sequenceLengthWords))
+# Correct because of 1-based indexing:
+lastCompleteBatch = length(train) - config$sequenceLengthWords
+batchesPerEpoch <- floor(lastCompleteBatch / (config$batchSize * config$strideStep))
 
 modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
 checkpointFiles <- list.files(pattern=glob2rx("model.*.hdf5"))
@@ -83,7 +85,7 @@ if(length(checkpointFiles) > 0){
 model <- keras_model_sequential()
 
 model %>%
-    layer_embedding(length(vocab$id) + 1, 128, input_length = config$sequenceLengthWords, mask_zero = TRUE) %>%
+    layer_embedding(length(vocab$id) + 1, config$nHiddenLayers, input_length = config$sequenceLengthWords, mask_zero = TRUE) %>%
     layer_lstm(config$nHiddenLayers, return_sequences = TRUE) %>%
     layer_dropout(0.1) %>%
     layer_lstm(config$nHiddenLayers) %>%
@@ -106,7 +108,7 @@ history <- model %>%
         initial_epoch = startEpoch,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5"),
-            callback_reduce_lr_on_plateau(monitor = "loss",factor = 0.1, patience = 2)
+            callback_reduce_lr_on_plateau(monitor = "loss",factor = 0.1, patience = 2, verbose = 1)
         ))
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
