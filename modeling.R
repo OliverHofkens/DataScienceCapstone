@@ -6,7 +6,7 @@ use_virtualenv("~/.virtualenvs/r-tensorflow/")
 config <- list(
     sequenceLengthWords = 5L,
     strideStep = 1L,
-    nHiddenLayers = 512,
+    nHiddenLayers = 256,
     learningRate = 0.01,
     batchSize = 100,
     nEpochs = 100,
@@ -15,11 +15,13 @@ config <- list(
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:10000000]
+train <- inputs$train[1:1000000]
 #validation <- inputs$validation
 #test <- inputs$test
 vocab <- inputs$vocabulary
 rm(inputs)
+
+#write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
 inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
     # Add 1 as 0 is reserved for masking unused inputs
@@ -108,7 +110,8 @@ history <- model %>%
         initial_epoch = startEpoch,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5"),
-            callback_reduce_lr_on_plateau(monitor = "loss",factor = 0.1, patience = 2, verbose = 1)
+            callback_reduce_lr_on_plateau(monitor = "loss",factor = 0.5, patience = 3, verbose = 1, min_lr = 0.0005),
+            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
         ))
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
