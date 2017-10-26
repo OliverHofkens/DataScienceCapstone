@@ -67,6 +67,12 @@ inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
 lastCompleteBatch = length(train) - config$sequenceLengthWords
 batchesPerEpoch <- floor(lastCompleteBatch / (config$batchSize * config$strideStep))
 
+validConfig = config
+validConfig$batchSize = 1000
+validationGen = inputGenerator(validation, vocab, validConfig)
+validationDataset = validationGen()
+
+
 modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
 checkpointFiles <- list.files(pattern=glob2rx("model.*.hdf5"))
 
@@ -82,11 +88,6 @@ if(length(checkpointFiles) > 0){
     startEpoch <- 0L
 }
 
-validConfig = config
-validConfig$batchSize = 2000
-
-validationGen = inputGenerator(validation, vocab, validConfig)
-validationDataset = validationGen()
 
 # Model Definition
 model <- keras_model_sequential()
@@ -117,8 +118,8 @@ history <- model %>%
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
             callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.5, patience = 5, verbose = 1, min_lr = 0.0005),
-            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv'),
-            callback_early_stopping(monitor = "val_loss", patience = 8)
+            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
+            #callback_early_stopping(monitor = "val_loss", patience = 10)
         ))
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
