@@ -5,9 +5,9 @@ use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
     sequenceLengthWords = 5L,
-    strideStep = 1L,
+    strideStep = 2L,
     nHiddenLayers = 256,
-    learningRate = 0.01,
+    learningRate = 0.005,
     batchSize = 100,
     nEpochs = 100,
     trainMaxQueueSize = 20
@@ -16,8 +16,7 @@ config <- list(
 # Data Prep
 inputs <- loadModelInputs()
 train <- inputs$train[1:1000000]
-#validation <- inputs$validation
-#test <- inputs$test
+validation <- inputs$validation[1:100000]
 vocab <- inputs$vocabulary
 rm(inputs)
 
@@ -83,6 +82,12 @@ if(length(checkpointFiles) > 0){
     startEpoch <- 0L
 }
 
+validConfig = config
+validConfig$batchSize = 2000
+
+validationGen = inputGenerator(validation, vocab, validConfig)
+validationDataset = validationGen()
+
 # Model Definition
 model <- keras_model_sequential()
 
@@ -108,10 +113,12 @@ history <- model %>%
         max_queue_size = config$trainMaxQueueSize,
         epochs=config$nEpochs, 
         initial_epoch = startEpoch,
+        validation_data = validationDataset,
         callbacks = list(
-            callback_model_checkpoint("model.{epoch:02d}-{loss:.2f}.hdf5"),
-            callback_reduce_lr_on_plateau(monitor = "loss",factor = 0.5, patience = 3, verbose = 1, min_lr = 0.0005),
-            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
+            callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
+            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.5, patience = 5, verbose = 1, min_lr = 0.0005),
+            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv'),
+            callback_early_stopping(monitor = "val_loss", patience = 8)
         ))
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
