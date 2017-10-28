@@ -4,18 +4,18 @@ library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
-    sequenceLengthWords = 5L,
+    sequenceLengthWords = 8L,
     strideStep = 2L,
-    nHiddenLayers = 256,
-    learningRate = 0.005,
+    nHiddenLayers = 200,
+    learningRate = 0.001,
     batchSize = 100,
-    nEpochs = 100,
+    nEpochs = 10,
     trainMaxQueueSize = 20
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:1000000]
+train <- inputs$train[1:2000000]
 validation <- inputs$validation[1:100000]
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -68,7 +68,7 @@ lastCompleteBatch = length(train) - config$sequenceLengthWords
 batchesPerEpoch <- floor(lastCompleteBatch / (config$batchSize * config$strideStep))
 
 validConfig = config
-validConfig$batchSize = 1000
+validConfig$batchSize = 500
 validationGen = inputGenerator(validation, vocab, validConfig)
 validationDataset = validationGen()
 
@@ -88,12 +88,13 @@ if(length(checkpointFiles) > 0){
     startEpoch <- 0L
 }
 
-
 # Model Definition
 model <- keras_model_sequential()
 
 model %>%
-    layer_embedding(length(vocab$id) + 1, config$nHiddenLayers, input_length = config$sequenceLengthWords, mask_zero = TRUE) %>%
+    layer_embedding(length(vocab$id) + 1, config$nHiddenLayers, 
+                    input_length = config$sequenceLengthWords, 
+                    mask_zero = TRUE, weights = list(embedding)) %>%
     layer_lstm(config$nHiddenLayers, return_sequences = TRUE) %>%
     layer_dropout(0.1) %>%
     layer_lstm(config$nHiddenLayers) %>%
@@ -118,7 +119,7 @@ history <- model %>%
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
             callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.5, patience = 5, verbose = 1, min_lr = 0.0005),
-            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
+            callback_tensorboard(log_dir = "log", embeddings_freq = 2, embeddings_metadata = 'vocab.tsv')
             #callback_early_stopping(monitor = "val_loss", patience = 10)
         ))
 
