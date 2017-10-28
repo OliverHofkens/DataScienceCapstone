@@ -9,14 +9,14 @@ config <- list(
     nHiddenLayers = 200,
     learningRate = 0.001,
     batchSize = 100,
-    nEpochs = 10,
+    nEpochs = 100,
     trainMaxQueueSize = 20
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:2000000]
-validation <- inputs$validation[1:100000]
+train <- inputs$train[1:5000000]
+validation <- inputs$validation
 vocab <- inputs$vocabulary
 rm(inputs)
 
@@ -63,6 +63,8 @@ inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
     }
 }
 
+embeddingMatrix <- readRDS('matrix.RDS')
+
 # Correct because of 1-based indexing:
 lastCompleteBatch = length(train) - config$sequenceLengthWords
 batchesPerEpoch <- floor(lastCompleteBatch / (config$batchSize * config$strideStep))
@@ -94,7 +96,7 @@ model <- keras_model_sequential()
 model %>%
     layer_embedding(length(vocab$id) + 1, config$nHiddenLayers, 
                     input_length = config$sequenceLengthWords, 
-                    mask_zero = TRUE, weights = list(embedding)) %>%
+                    mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
     layer_lstm(config$nHiddenLayers, return_sequences = TRUE) %>%
     layer_dropout(0.1) %>%
     layer_lstm(config$nHiddenLayers) %>%
@@ -118,9 +120,9 @@ history <- model %>%
         validation_data = validationDataset,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.5, patience = 5, verbose = 1, min_lr = 0.0005),
-            callback_tensorboard(log_dir = "log", embeddings_freq = 2, embeddings_metadata = 'vocab.tsv')
-            #callback_early_stopping(monitor = "val_loss", patience = 10)
+            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.8, patience = 3, min_lr = 0.0001),
+            callback_tensorboard(log_dir = "log", embeddings_freq = 2, embeddings_metadata = 'vocab.tsv'),
+            callback_early_stopping(monitor = "val_loss", patience = 10)
         ))
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
