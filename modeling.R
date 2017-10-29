@@ -4,18 +4,18 @@ library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
-    sequenceLengthWords = 8L,
-    strideStep = 2L,
+    sequenceLengthWords = 30L,
+    strideStep = 3L,
     nHiddenLayers = 200,
-    learningRate = 0.001,
+    learningRate = 0.0005,
     batchSize = 100,
-    nEpochs = 100,
+    nEpochs = 20,
     trainMaxQueueSize = 20
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:5000000]
+train <- inputs$train[1:1000000]
 validation <- inputs$validation
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -70,7 +70,7 @@ lastCompleteBatch = length(train) - config$sequenceLengthWords
 batchesPerEpoch <- floor(lastCompleteBatch / (config$batchSize * config$strideStep))
 
 validConfig = config
-validConfig$batchSize = 500
+validConfig$batchSize = 100
 validationGen = inputGenerator(validation, vocab, validConfig)
 validationDataset = validationGen()
 
@@ -120,8 +120,8 @@ history <- model %>%
         validation_data = validationDataset,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.8, patience = 3, min_lr = 0.0001),
-            callback_tensorboard(log_dir = "log", embeddings_freq = 2, embeddings_metadata = 'vocab.tsv'),
+            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.8, patience = 3, min_lr = 0.00001),
+            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv'),
             callback_early_stopping(monitor = "val_loss", patience = 10)
         ))
 
