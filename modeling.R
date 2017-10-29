@@ -4,10 +4,10 @@ library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
-    sequenceLengthWords = 30L,
-    strideStep = 3L,
+    sequenceLengthWords = 20L,
+    strideStep = 5L,
     nHiddenLayers = 200,
-    learningRate = 0.0005,
+    learningRate = 0.001,
     batchSize = 100,
     nEpochs = 20,
     trainMaxQueueSize = 20
@@ -15,8 +15,8 @@ config <- list(
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:1000000]
-validation <- inputs$validation
+train <- inputs$train[1:10000000]
+#validation <- inputs$validation
 vocab <- inputs$vocabulary
 rm(inputs)
 
@@ -69,6 +69,11 @@ embeddingMatrix <- readRDS('matrix.RDS')
 lastCompleteBatch = length(train) - config$sequenceLengthWords
 batchesPerEpoch <- floor(lastCompleteBatch / (config$batchSize * config$strideStep))
 
+inputConfig = config
+inputConfig$batchSize = batchesPerEpoch
+inputGen = inputGenerator(train, vocab, inputConfig)
+inputDataset = inputGen()
+
 validConfig = config
 validConfig$batchSize = 100
 validationGen = inputGenerator(validation, vocab, validConfig)
@@ -82,7 +87,7 @@ if(length(checkpointFiles) > 0){
     checkpointFiles <- sort(checkpointFiles, decreasing = TRUE)
     checkpoint <- checkpointFiles[1]
     
-    model <- load_model_hdf5(checkpoint)
+    #model <- load_model_hdf5(checkpoint)
     
     matches <- regmatches(checkpoint, regexec(modelPattern, checkpoint))
     startEpoch <- as.integer(matches[[1]][[2]]) 
@@ -98,7 +103,7 @@ model %>%
                     input_length = config$sequenceLengthWords, 
                     mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
     layer_lstm(config$nHiddenLayers, return_sequences = TRUE) %>%
-    layer_dropout(0.1) %>%
+    layer_dropout(0.2) %>%
     layer_lstm(config$nHiddenLayers) %>%
     layer_dense(length(vocab$id) + 1) %>%
     layer_activation("softmax")
@@ -111,19 +116,34 @@ model %>% compile(
 
 # Training and prediction
 history <- model %>%
-    fit_generator(
-        generator = inputGenerator(train, vocab, config),
-        steps_per_epoch = batchesPerEpoch,
-        max_queue_size = config$trainMaxQueueSize,
+    fit(
+        x=inputDataset[[1]],
+        y=inputDataset[[2]],
         epochs=config$nEpochs, 
         initial_epoch = startEpoch,
-        validation_data = validationDataset,
+        validation_split = 0.2,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.8, patience = 3, min_lr = 0.00001),
-            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv'),
-            callback_early_stopping(monitor = "val_loss", patience = 10)
+            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.8, patience = 5, min_lr = 0.0001),
+            callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
+            #callback_early_stopping(monitor = "val_loss", patience = 10)
         ))
+
+
+# history <- model %>%
+#     fit_generator(
+#         generator = inputGenerator(train, vocab, config),
+#         steps_per_epoch = batchesPerEpoch,
+#         max_queue_size = config$trainMaxQueueSize,
+#         epochs=config$nEpochs, 
+#         initial_epoch = startEpoch,
+#         validation_data = validationDataset,
+#         callbacks = list(
+#             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
+#             callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.8, patience = 3, min_lr = 0.00001),
+#             callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv'),
+#             callback_early_stopping(monitor = "val_loss", patience = 10)
+#         ))
 
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
 rModel <- serialize_model(model, include_optimizer = TRUE)
