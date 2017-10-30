@@ -7,14 +7,14 @@ config <- list(
     sequenceLengthWords = 10L,
     strideStep = 3L,
     nHiddenLayers = 200,
-    learningRate = 0.01,
+    learningRate = 0.005,
     batchSize = 100,
     nEpochs = 100,
     trainMaxQueueSize = 20,
     lrDecay = 0.5,
     lrMin = 0.0001,
     decreaseLrPatience = 5,
-    dropout = 0.2,
+    dropout = 0.1,
     validationSplit = 0.2
     )
 
@@ -130,7 +130,7 @@ history <- model %>%
         validation_split = config$validationSplit,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = config$lrDecay, patience = config$decreaseLrPatience, min_lr = config$lrMin),
+            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = config$lrDecay, patience = config$decreaseLrPatience, min_lr = config$lrMin, cooldown = 2),
             callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
             #callback_early_stopping(monitor = "val_loss", patience = 10)
         ))
