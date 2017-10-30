@@ -4,18 +4,23 @@ library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
-    sequenceLengthWords = 20L,
-    strideStep = 5L,
+    sequenceLengthWords = 10L,
+    strideStep = 3L,
     nHiddenLayers = 200,
-    learningRate = 0.001,
+    learningRate = 0.01,
     batchSize = 100,
-    nEpochs = 20,
-    trainMaxQueueSize = 20
+    nEpochs = 100,
+    trainMaxQueueSize = 20,
+    lrDecay = 0.5,
+    lrMin = 0.0001,
+    decreaseLrPatience = 5,
+    dropout = 0.2,
+    validationSplit = 0.2
     )
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:10000000]
+train <- inputs$train[1:5000000]
 #validation <- inputs$validation
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -74,26 +79,26 @@ inputConfig$batchSize = batchesPerEpoch
 inputGen = inputGenerator(train, vocab, inputConfig)
 inputDataset = inputGen()
 
-validConfig = config
-validConfig$batchSize = 100
-validationGen = inputGenerator(validation, vocab, validConfig)
-validationDataset = validationGen()
+#validConfig = config
+#validConfig$batchSize = 100
+#validationGen = inputGenerator(validation, vocab, validConfig)
+#validationDataset = validationGen()
 
 
-modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
-checkpointFiles <- list.files(pattern=glob2rx("model.*.hdf5"))
+#modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
+#checkpointFiles <- list.files(pattern=glob2rx("model.*.hdf5"))
 
-if(length(checkpointFiles) > 0){
-    checkpointFiles <- sort(checkpointFiles, decreasing = TRUE)
-    checkpoint <- checkpointFiles[1]
+#if(length(checkpointFiles) > 0){
+#    checkpointFiles <- sort(checkpointFiles, decreasing = TRUE)
+#    checkpoint <- checkpointFiles[1]
     
     #model <- load_model_hdf5(checkpoint)
     
-    matches <- regmatches(checkpoint, regexec(modelPattern, checkpoint))
-    startEpoch <- as.integer(matches[[1]][[2]]) 
-} else {
+#    matches <- regmatches(checkpoint, regexec(modelPattern, checkpoint))
+#    startEpoch <- as.integer(matches[[1]][[2]]) 
+#} else {
     startEpoch <- 0L
-}
+#}
 
 # Model Definition
 model <- keras_model_sequential()
@@ -102,9 +107,10 @@ model %>%
     layer_embedding(length(vocab$id) + 1, config$nHiddenLayers, 
                     input_length = config$sequenceLengthWords, 
                     mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
-    layer_lstm(config$nHiddenLayers, return_sequences = TRUE) %>%
-    layer_dropout(0.2) %>%
-    layer_lstm(config$nHiddenLayers) %>%
+    layer_lstm(config$nHiddenLayers, return_sequences = TRUE, 
+               dropout = config$dropout) %>%
+    layer_dropout(config$dropout) %>%
+    layer_lstm(config$nHiddenLayers, dropout = config$dropout) %>%
     layer_dense(length(vocab$id) + 1) %>%
     layer_activation("softmax")
 
@@ -121,10 +127,10 @@ history <- model %>%
         y=inputDataset[[2]],
         epochs=config$nEpochs, 
         initial_epoch = startEpoch,
-        validation_split = 0.2,
+        validation_split = config$validationSplit,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.8, patience = 5, min_lr = 0.0001),
+            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = config$lrDecay, patience = config$decreaseLrPatience, min_lr = config$lrMin),
             callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
             #callback_early_stopping(monitor = "val_loss", patience = 10)
         ))

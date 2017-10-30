@@ -12,7 +12,7 @@ shinyServer(function(input, output) {
     output$predictions <- renderDataTable({
         text <- tolower(input$text_input)
         words <- unlist(strsplit(text, " ", fixed = TRUE))
-        words <- tail(words, n=30)
+        words <- tail(words, n=10)
         
         prediction <- predictOnText(model, vocab, words)
         prediction

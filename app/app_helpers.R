@@ -4,7 +4,7 @@ predictOnText <- function(model, vocab, word_vector){
     ids <- getWordIds(vocab, word_vector)
     
     # If we don't have 5 words yet, pad with 0 for embedding layer mask in model:
-    padLength = 30 - length(ids)
+    padLength = 10 - length(ids)
     if(padLength > 0){
         ids <- c(rep.int(0, padLength), ids)
     }
