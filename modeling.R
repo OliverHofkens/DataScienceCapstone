@@ -6,7 +6,8 @@ use_virtualenv("~/.virtualenvs/r-tensorflow/")
 config <- list(
     sequenceLengthWords = 10L,
     strideStep = 3L,
-    nHiddenLayers = 200,
+    embeddingSize = 200,
+    nHiddenLayers = 256,
     learningRate = 0.005,
     batchSize = 100,
     nEpochs = 100,
@@ -14,7 +15,7 @@ config <- list(
     lrDecay = 0.5,
     lrMin = 0.0001,
     decreaseLrPatience = 5,
-    dropout = 0.1,
+    dropout = 0.2,
     validationSplit = 0.2
     )
 
@@ -104,13 +105,12 @@ inputDataset = inputGen()
 model <- keras_model_sequential()
 
 model %>%
-    layer_embedding(length(vocab$id) + 1, config$nHiddenLayers, 
+    layer_embedding(length(vocab$id) + 1, config$embeddingSize, 
                     input_length = config$sequenceLengthWords, 
                     mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
     layer_lstm(config$nHiddenLayers, return_sequences = TRUE, 
                dropout = config$dropout) %>%
-    layer_dropout(config$dropout) %>%
-    layer_lstm(config$nHiddenLayers, dropout = config$dropout) %>%
+    layer_lstm(config$nHiddenLayers) %>%
     layer_dense(length(vocab$id) + 1) %>%
     layer_activation("softmax")
 
