@@ -62,6 +62,7 @@ inputGenerator <- function(dataset, vocabulary, config) {
             # Add a 0 in front, to be used when masking unused inputs
             c(0, as.integer(vocab$id == yi))
         })
+        Y <- t(Y)
     
         return(list(X,Y))
     }
@@ -69,20 +70,8 @@ inputGenerator <- function(dataset, vocabulary, config) {
 
 embeddingMatrix <- readRDS('matrix.RDS')
 
-# Correct because of 1-based indexing:
-lastCompleteBatch = length(train) - config$sequenceLengthWords
-batchesPerEpoch <- floor(lastCompleteBatch / (config$batchSize * config$strideStep))
-
-inputConfig = config
-inputConfig$batchSize = batchesPerEpoch
-inputGen = inputGenerator(train, vocab, inputConfig)
+inputGen = inputGenerator(train, vocab, config)
 inputDataset = inputGen()
-
-#validConfig = config
-#validConfig$batchSize = 100
-#validationGen = inputGenerator(validation, vocab, validConfig)
-#validationDataset = validationGen()
-
 
 #modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
 #checkpointFiles <- list.files(pattern=glob2rx("model.*.hdf5"))
