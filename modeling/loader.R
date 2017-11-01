@@ -54,13 +54,17 @@ getWordIds <- function(filename, vocab){
     eofId <- paste(" ", eofId, " ", sep = "")
     splits <- unlist(strsplit(ids, eofId, fixed = TRUE))
     # Finally, split each sentence on spaces and convert to int:
-    sapply(splits, function(sentence){
+    res <- sapply(splits, function(sentence){
             as.integer(
                 unlist(
                     strsplit(sentence, " ", fixed = TRUE)
                 )
             )
         }, USE.NAMES = FALSE)
+    
+    # Remove any sentences that are only 1 word long
+    cond <- lapply(res, function(x) length(x) > 1)
+    res[unlist(cond)]
 }
 
 loadVocabulary <- function(){

@@ -21,7 +21,7 @@ config <- list(
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:100000]
+train <- inputs$train[1:1000]
 #validation <- inputs$validation
 vocab <- inputs$vocabulary
 rm(inputs)
@@ -52,25 +52,16 @@ inputGenerator <- function(dataset, vocabulary, config) {
             })
         })
         
-        nextIndex <-  index + (batchSize * stride) - 1
+        resultsPerSentence <- unlist(resultsPerSentence, recursive = FALSE)
+        # All odd results are inputs, even results are outputs:
+        X <- resultsPerSentence[seq.int(1, length(resultsPerSentence), by = 2)]
+        X <- matrix(unlist(X), ncol = seqLength, byrow = TRUE)
         
-        # If we reached the end (+ prediction), start over. Just in case.
-        if(nextIndex + seqLength + 1 > length(dataset)){
-            index <<- 1
-            nextIndex <- index + (batchSize * stride) - 1
-        }
-        
-        X <<- sapply(seq(index, nextIndex, by = stride), function(i) {dataset[i:(i + seqLength - 1L)]})
-        X <<- t(X)
-        
-        Y <<- sapply(seq(index, nextIndex, by = stride), function(i) {dataset[i + seqLength]})
-        Y <<- sapply(Y, function(yi){
+        Y <- resultsPerSentence[seq.int(2, length(resultsPerSentence), by = 2)]
+        Y <- sapply(Y, function(yi){
             # Add a 0 in front, to be used when masking unused inputs
             c(0, as.integer(vocab$id == yi))
         })
-        Y <<- t(Y)
-        
-        index <<- nextIndex + 1
     
         return(list(X,Y))
     }
