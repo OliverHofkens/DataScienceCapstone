@@ -32,7 +32,7 @@ getProfaneWords <- function(language){
 cleanCorpus <- function(corpus, language){
     # Removes punctuation that usually doesn't appear inside a word (preserves dashes and single quotes for e.g. isn't)
     removePunctuationSafe <- function(x){
-        gsub("[][\"#$%&()*+,/:;<=>@\\^_`{|}~\u201C\u201D\u00AB\u00BB\u00BD\u00B7\u2026\u0093\u0094\u0092\u0096\u0097\u2032\u2033\u00B4\u00A3\u2013]", " ", x)
+        gsub("[][\"#$%&()*+/:;<=>@\\^_`{|}~\u201C\u201D\u00AB\u00BB\u00BD\u00B7\u2026\u0093\u0094\u0092\u0096\u0097\u2032\u2033\u00B4\u00A3\u2013]", " ", x)
     }
     
     # Removes dashes and quotes that can actually appear inside a word (but don't)
@@ -41,13 +41,22 @@ cleanCorpus <- function(corpus, language){
         gsub("['-]\\W", " ", x)
     }
     
+    removeCommas <- function(x){
+        gsub(",", " ", x)
+    }
+    
     fillSentenceEnding <- function(x){
-        gsub("[.!?]", " <eos> ", x)
+        gsub("[.!?]+", " <eos> ", x)
+    }
+    
+    replaceNumbers <- function(x){
+        gsub("[+-]?[0-9]+[.,]?[0-9]*", " <num> ", x)
     }
     
     corpus <- tm_map(corpus, FUN = tolower)
-    corpus <- tm_map(corpus, FUN = removeNumbers)
     corpus <- tm_map(corpus, FUN = removePunctuationSafe)
+    corpus <- tm_map(corpus, FUN = replaceNumbers)
+    corpus <- tm_map(corpus, FUN = removeCommas)
     corpus <- tm_map(corpus, FUN = removeOtherPunctuation)
     corpus <- tm_map(corpus, FUN = fillSentenceEnding)
     

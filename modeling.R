@@ -5,7 +5,7 @@ use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 config <- list(
     sequenceLengthWords = 10L,
-    strideStep = 3L,
+    strideStep = 1L,
     embeddingSize = 200,
     nHiddenLayers = 200,
     learningRate = 0.001,
@@ -21,29 +21,37 @@ config <- list(
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:10000000]
+train <- inputs$train[1:100000]
 #validation <- inputs$validation
 vocab <- inputs$vocabulary
 rm(inputs)
 
 #write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
-inputGenerator <- function(dataset, vocabulary, config, startAt=1) {
+inputGenerator <- function(dataset, vocabulary, config) {
     # Add 1 as 0 is reserved for masking unused inputs
     vocabSize <- length(vocabulary$word) + 1
     stride <- config$strideStep
     seqLength <- config$sequenceLengthWords
     batchSize <- config$batchSize
     
-    index = startAt
-    
-    # Input = (batchSize x Sequence Length)
-    X <- array(0, dim = c(batchSize, seqLength))
-    
-    # 2-D output (batchSize x one-hot vocab)
-    Y <- array(0, dim = c(batchSize, seqLength))
-    
     function() {
+        resultsPerSentence <- sapply(dataset, function(sentence){
+            endIndexOfLastBatch <- length(sentence) - 1L
+            sapply(seq.int(1, endIndexOfLastBatch, by=stride), function(i){
+                # Start at current index minus seqLength, or 1 if not enough words.
+                from <- max(i - seqLength + 1, 1)
+                batch <- sentence[from:i]
+                # Pad batch with 0 if not long enough:
+                padSize <- seqLength - length(batch)
+                if(padSize > 0){
+                    batch <- c(rep.int(0, padSize), batch)
+                }
+                pred <- sentence[i + 1]
+                list(batch, pred)
+            })
+        })
+        
         nextIndex <-  index + (batchSize * stride) - 1
         
         # If we reached the end (+ prediction), start over. Just in case.

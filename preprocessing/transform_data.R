@@ -6,7 +6,6 @@ replaceWithUnk <- function(x, commons){
     words <- unlist(strsplit(x, split = " "))
     selection = !(words %in% commons)
     words[selection] <- "<unk>"
-    words
     paste(words, collapse = " ")
 }
 
