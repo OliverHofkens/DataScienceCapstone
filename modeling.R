@@ -3,30 +3,31 @@ library(data.table)
 library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
-config <- list(
-    sequenceLengthWords = 10L,
-    strideStep = 1L,
-    embeddingSize = 200,
-    nHiddenLayers = 200,
-    learningRate = 0.001,
-    batchSize = 100,
-    nEpochs = 100,
-    trainMaxQueueSize = 20,
-    lrDecay = 0.8,
-    lrMin = 0.0001,
-    decreaseLrPatience = 5,
-    dropout = 0.2,
-    validationSplit = 0.1
-    )
+FLAGS <- flags(
+    flag_numeric("sequenceLengthWords", 10L),
+    flag_numeric("strideStep", 1L),
+    flag_numeric("embeddingSize", 200L),
+    flag_numeric("nHiddenLayers", 200L),
+    flag_numeric("learningRate", 0.001),
+    flag_numeric("batchSize", 100),
+    flag_numeric("nEpochs", 50),
+    flag_numeric("lrDecay", 0.9),
+    flag_numeric("lrMin", 0.0001),
+    flag_numeric("decreaseLrPatience", 10),
+    flag_numeric("dropout1", 0),
+    flag_numeric("dropout2", 0),
+    flag_numeric("validationSplit", 0.2),
+    flag_numeric("nInputSentences", 1000L)
+)
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:1000]
+train <- inputs$train[1:FLAGS$nInputSentences]
 #validation <- inputs$validation
 vocab <- inputs$vocabulary
 rm(inputs)
 
-#write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
+write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
 inputGenerator <- function(dataset, vocabulary, config) {
     # Add 1 as 0 is reserved for masking unused inputs
@@ -70,7 +71,7 @@ inputGenerator <- function(dataset, vocabulary, config) {
 
 embeddingMatrix <- readRDS('matrix.RDS')
 
-inputGen = inputGenerator(train, vocab, config)
+inputGen = inputGenerator(train, vocab, FLAGS)
 inputDataset = inputGen()
 
 #modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
@@ -92,18 +93,18 @@ inputDataset = inputGen()
 model <- keras_model_sequential()
 
 model %>%
-    layer_embedding(length(vocab$id) + 1, config$embeddingSize, 
-                    input_length = config$sequenceLengthWords, 
+    layer_embedding(length(vocab$id) + 1, FLAGS$embeddingSize, 
+                    input_length = FLAGS$sequenceLengthWords, 
                     mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
-    layer_lstm(config$nHiddenLayers, return_sequences = TRUE, 
-               dropout = config$dropout) %>%
-    layer_lstm(config$nHiddenLayers, dropout = config$dropout) %>%
+    layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
+               dropout = FLAGS$dropout1) %>%
+    layer_lstm(FLAGS$nHiddenLayers, dropout = FLAGS$dropout2) %>%
     layer_dense(length(vocab$id) + 1) %>%
     layer_activation("softmax")
 
 model %>% compile(
     loss = "categorical_crossentropy", 
-    optimizer = optimizer_rmsprop(lr = config$learningRate),
+    optimizer = optimizer_rmsprop(lr = FLAGS$learningRate),
     metrics = c('accuracy')
 )
 
@@ -111,33 +112,15 @@ history <- model %>%
     fit(
         x=inputDataset[[1]],
         y=inputDataset[[2]],
-        epochs=config$nEpochs, 
+        epochs=FLAGS$nEpochs, 
         initial_epoch = startEpoch,
-        validation_split = config$validationSplit,
+        validation_split = FLAGS$validationSplit,
         callbacks = list(
             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = config$lrDecay, patience = config$decreaseLrPatience, min_lr = config$lrMin),
+            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
             callback_tensorboard(log_dir = "log", embeddings_freq = 10, embeddings_metadata = 'vocab.tsv')
             #callback_early_stopping(monitor = "val_loss", patience = 10)
         ))
 
-
-# history <- model %>%
-#     fit_generator(
-#         generator = inputGenerator(train, vocab, config),
-#         steps_per_epoch = batchesPerEpoch,
-#         max_queue_size = config$trainMaxQueueSize,
-#         epochs=config$nEpochs, 
-#         initial_epoch = startEpoch,
-#         validation_data = validationDataset,
-#         callbacks = list(
-#             callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-#             callback_reduce_lr_on_plateau(monitor = "val_loss",factor = 0.8, patience = 3, min_lr = 0.00001),
-#             callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv'),
-#             callback_early_stopping(monitor = "val_loss", patience = 10)
-#         ))
-
 save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
-rModel <- serialize_model(model, include_optimizer = TRUE)
-saveRDS(rModel, 'keras_model_r.rds')
 saveRDS(history, 'history.rds')
