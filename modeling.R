@@ -8,7 +8,7 @@ FLAGS <- flags(
     flag_numeric("strideStep", 1L),
     flag_numeric("embeddingSize", 200L),
     flag_numeric("nHiddenLayers", 200L),
-    flag_numeric("learningRate", 0.001),
+    flag_numeric("learningRate", 0.002),
     flag_numeric("batchSize", 100),
     flag_numeric("nEpochs", 50),
     flag_numeric("lrDecay", 0.9),
@@ -104,7 +104,7 @@ model %>%
 
 model %>% compile(
     loss = "categorical_crossentropy", 
-    optimizer = optimizer_rmsprop(lr = FLAGS$learningRate),
+    optimizer = optimizer_nadam(lr = FLAGS$learningRate),
     metrics = c('accuracy')
 )
 
