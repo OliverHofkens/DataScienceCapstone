@@ -9,14 +9,14 @@ FLAGS <- flags(
     flag_numeric("embeddingSize", 200L),
     flag_numeric("nHiddenLayers", 200L),
     flag_numeric("learningRate", 0.002),
-    flag_numeric("nEpochs", 5),
+    flag_numeric("nEpochs", 10),
     flag_numeric("lrDecay", 0.9),
     flag_numeric("lrMin", 0.0001),
     flag_numeric("decreaseLrPatience", 10),
     #flag_numeric("dropout1", 0),
     flag_numeric("dropout2", 0),
     flag_numeric("sentencesPerBatch", 1000L),
-    flag_numeric("inputSentences", 100000L),
+    flag_numeric("inputSentences", 10000L),
     flag_numeric("validationSentences", 200L)
 )
 
@@ -96,6 +96,7 @@ validationDataset <- validationGen()
 
 superBatches <- floor(length(train) / FLAGS$sentencesPerBatch) - 1
 for(i in 1:superBatches){
+    cat(sprintf("\n\nSuperEpoch %d of %d\n\n",i,superBatches))
     startIndex <- ((i - 1) * FLAGS$sentencesPerBatch) + 1
     nextIndex <- startIndex + FLAGS$sentencesPerBatch - 1
     sentences <- train[startIndex:nextIndex]
