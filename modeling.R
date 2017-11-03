@@ -4,37 +4,35 @@ library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 FLAGS <- flags(
-    flag_numeric("sequenceLengthWords", 10L),
+    flag_numeric("sequenceLengthWords", 7L),
     flag_numeric("strideStep", 1L),
     flag_numeric("embeddingSize", 200L),
     flag_numeric("nHiddenLayers", 200L),
     flag_numeric("learningRate", 0.002),
-    flag_numeric("batchSize", 100),
-    flag_numeric("nEpochs", 50),
+    flag_numeric("nEpochs", 5),
     flag_numeric("lrDecay", 0.9),
     flag_numeric("lrMin", 0.0001),
     flag_numeric("decreaseLrPatience", 10),
-    flag_numeric("dropout1", 0),
+    #flag_numeric("dropout1", 0),
     flag_numeric("dropout2", 0),
-    flag_numeric("validationSplit", 0.2),
-    flag_numeric("nInputSentences", 1000L)
+    flag_numeric("sentencesPerBatch", 1000L),
+    flag_numeric("inputSentences", 100000L),
+    flag_numeric("validationSentences", 200L)
 )
 
 # Data Prep
 inputs <- loadModelInputs()
-train <- inputs$train[1:FLAGS$nInputSentences]
-#validation <- inputs$validation
+train <- inputs$train[1:FLAGS$inputSentences]
+validation <- inputs$validation[1:FLAGS$validationSentences]
 vocab <- inputs$vocabulary
-rm(inputs)
 
-write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
+#write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
 inputGenerator <- function(dataset, vocabulary, config) {
     # Add 1 as 0 is reserved for masking unused inputs
     vocabSize <- length(vocabulary$word) + 1
     stride <- config$strideStep
     seqLength <- config$sequenceLengthWords
-    batchSize <- config$batchSize
     
     function() {
         resultsPerSentence <- sapply(dataset, function(sentence){
@@ -59,35 +57,16 @@ inputGenerator <- function(dataset, vocabulary, config) {
         X <- matrix(unlist(X), ncol = seqLength, byrow = TRUE)
         
         Y <- resultsPerSentence[seq.int(2, length(resultsPerSentence), by = 2)]
-        Y <- sapply(Y, function(yi){
+        Y <- t(sapply(Y, function(yi){
             # Add a 0 in front, to be used when masking unused inputs
-            c(0, as.integer(vocab$id == yi))
-        })
-        Y <- t(Y)
+            c(0,as.integer(vocab$id == yi))
+        }))
     
         return(list(X,Y))
     }
 }
 
 embeddingMatrix <- readRDS('matrix.RDS')
-
-inputGen = inputGenerator(train, vocab, FLAGS)
-inputDataset = inputGen()
-
-#modelPattern <- "model.(\\d+)-\\d+.\\d+.hdf5"
-#checkpointFiles <- list.files(pattern=glob2rx("model.*.hdf5"))
-
-#if(length(checkpointFiles) > 0){
-#    checkpointFiles <- sort(checkpointFiles, decreasing = TRUE)
-#    checkpoint <- checkpointFiles[1]
-    
-    #model <- load_model_hdf5(checkpoint)
-    
-#    matches <- regmatches(checkpoint, regexec(modelPattern, checkpoint))
-#    startEpoch <- as.integer(matches[[1]][[2]]) 
-#} else {
-    startEpoch <- 0L
-#}
 
 # Model Definition
 model <- keras_model_sequential()
@@ -96,9 +75,10 @@ model %>%
     layer_embedding(length(vocab$id) + 1, FLAGS$embeddingSize, 
                     input_length = FLAGS$sequenceLengthWords, 
                     mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
-    layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
-               dropout = FLAGS$dropout1) %>%
-    layer_lstm(FLAGS$nHiddenLayers, dropout = FLAGS$dropout2) %>%
+    #layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
+    #           dropout = FLAGS$dropout1) %>%
+    layer_lstm(FLAGS$nHiddenLayers, 
+               dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2) %>%
     layer_dense(length(vocab$id) + 1) %>%
     layer_activation("softmax")
 
@@ -108,19 +88,31 @@ model %>% compile(
     metrics = c('accuracy')
 )
 
-history <- model %>%
-    fit(
-        x=inputDataset[[1]],
-        y=inputDataset[[2]],
-        epochs=FLAGS$nEpochs, 
-        initial_epoch = startEpoch,
-        validation_split = FLAGS$validationSplit,
-        callbacks = list(
-            callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-            callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
-            callback_tensorboard(log_dir = "log", embeddings_freq = 10, embeddings_metadata = 'vocab.tsv')
-            #callback_early_stopping(monitor = "val_loss", patience = 10)
-        ))
+validationGen <- inputGenerator(validation, vocab, FLAGS)
+validationDataset <- validationGen()
 
-save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
-saveRDS(history, 'history.rds')
+superBatches <- floor(length(train) / FLAGS$sentencesPerBatch) - 1
+for(i in 1:superBatches){
+    startIndex <- ((i - 1) * FLAGS$nInputSentences) + 1
+    nextIndex <- startIndex + FLAGS$nInputSentences - 1
+    sentences <- train[startIndex:nextIndex]
+    inputGen = inputGenerator(sentences, vocab, FLAGS)
+    inputDataset = inputGen()
+    
+    history <- model %>%
+        fit(
+            x=inputDataset[[1]],
+            y=inputDataset[[2]],
+            epochs=FLAGS$nEpochs, 
+            initial_epoch = i,
+            validation_data = validationDataset,
+            callbacks = list(
+                callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
+                #callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
+                callback_tensorboard(log_dir = "log", embeddings_freq = 10, embeddings_metadata = 'vocab.tsv')
+                #callback_early_stopping(monitor = "val_loss", patience = 10)
+            ))
+    
+    save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
+    saveRDS(history, 'history.rds')
+}
