@@ -116,6 +116,6 @@ for(i in 1:superBatches){
                 #callback_early_stopping(monitor = "val_loss", patience = 10)
             ))
     
-    save_model_hdf5(model, paste('keras_model', i, '.h5'), include_optimizer = TRUE)
-    saveRDS(history, paste('history', i, '.rds', sep = ))
+    save_model_hdf5(model, paste('keras_model', i, '.h5', sep = ""), include_optimizer = TRUE)
+    saveRDS(history, paste('history', i, '.rds', sep = ""))
 }
