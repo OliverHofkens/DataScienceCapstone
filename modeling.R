@@ -25,6 +25,7 @@ inputs <- loadModelInputs()
 train <- inputs$train[1:FLAGS$inputSentences]
 validation <- inputs$validation[1:FLAGS$validationSentences]
 vocab <- inputs$vocabulary
+rm(inputs)
 
 #write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
@@ -88,13 +89,15 @@ model %>% compile(
     metrics = c('accuracy')
 )
 
+rm(embeddingMatrix)
+
 validationGen <- inputGenerator(validation, vocab, FLAGS)
 validationDataset <- validationGen()
 
 superBatches <- floor(length(train) / FLAGS$sentencesPerBatch) - 1
 for(i in 1:superBatches){
-    startIndex <- ((i - 1) * FLAGS$nInputSentences) + 1
-    nextIndex <- startIndex + FLAGS$nInputSentences - 1
+    startIndex <- ((i - 1) * FLAGS$sentencesPerBatch) + 1
+    nextIndex <- startIndex + FLAGS$sentencesPerBatch - 1
     sentences <- train[startIndex:nextIndex]
     inputGen = inputGenerator(sentences, vocab, FLAGS)
     inputDataset = inputGen()
@@ -104,15 +107,14 @@ for(i in 1:superBatches){
             x=inputDataset[[1]],
             y=inputDataset[[2]],
             epochs=FLAGS$nEpochs, 
-            initial_epoch = i,
             validation_data = validationDataset,
             callbacks = list(
                 callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
                 #callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
-                callback_tensorboard(log_dir = "log", embeddings_freq = 10, embeddings_metadata = 'vocab.tsv')
+                callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
                 #callback_early_stopping(monitor = "val_loss", patience = 10)
             ))
     
-    save_model_hdf5(model, 'keras_model.h5', include_optimizer = TRUE)
-    saveRDS(history, 'history.rds')
+    save_model_hdf5(model, paste('keras_model', i, '.h5'), include_optimizer = TRUE)
+    saveRDS(history, paste('history', i, '.rds', sep = ))
 }
