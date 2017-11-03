@@ -15,9 +15,9 @@ FLAGS <- flags(
     flag_numeric("decreaseLrPatience", 10),
     #flag_numeric("dropout1", 0),
     flag_numeric("dropout2", 0),
-    flag_numeric("sentencesPerBatch", 1000L),
-    flag_numeric("inputSentences", 10000L),
-    flag_numeric("validationSentences", 200L)
+    flag_numeric("sentencesPerBatch", 10000L),
+    flag_numeric("inputSentences", 100000L),
+    flag_numeric("validationSentences", 1000L)
 )
 
 # Data Prep
@@ -57,12 +57,9 @@ inputGenerator <- function(dataset, vocabulary, config) {
         X <- resultsPerSentence[seq.int(1, length(resultsPerSentence), by = 2)]
         X <- matrix(unlist(X), ncol = seqLength, byrow = TRUE)
         
-        Y <- resultsPerSentence[seq.int(2, length(resultsPerSentence), by = 2)]
-        Y <- t(sapply(Y, function(yi){
-            # Add a 0 in front, to be used when masking unused inputs
-            c(0,as.integer(vocab$id == yi))
-        }))
-    
+        Y <- as.integer(resultsPerSentence[seq.int(2, length(resultsPerSentence), by = 2)])
+
+        
         return(list(X,Y))
     }
 }
@@ -84,7 +81,7 @@ model %>%
     layer_activation("softmax")
 
 model %>% compile(
-    loss = "categorical_crossentropy", 
+    loss = "sparse_categorical_crossentropy", 
     optimizer = optimizer_nadam(lr = FLAGS$learningRate),
     metrics = c('accuracy')
 )
