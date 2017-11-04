@@ -16,7 +16,8 @@ FLAGS <- flags(
     flag_numeric("dropout2", 0.1),
     flag_numeric("sentencesPerBatch", 100000L),
     flag_numeric("inputSentences", 1000000L),
-    flag_numeric("validationSentences", 1000L)
+    flag_numeric("validationSentences", 1000L),
+    flag_numeric("batchSize", 64)
 )
 
 # Data Prep
@@ -103,6 +104,7 @@ for(i in 1:superBatches){
         fit(
             x=inputDataset[[1]],
             y=inputDataset[[2]],
+            batch_size=FLAGS$batchSize,
             epochs=FLAGS$nEpochs, 
             validation_data = validationDataset,
             callbacks = list(
