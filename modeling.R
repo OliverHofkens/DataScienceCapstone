@@ -17,7 +17,8 @@ FLAGS <- flags(
     flag_numeric("sentencesPerBatch", 100000L),
     flag_numeric("inputSentences", 1000000L),
     flag_numeric("validationSentences", 1000L),
-    flag_numeric("batchSize", 64)
+    flag_numeric("batchSize", 64),
+    flag_string("continueFrom", NULL)
 )
 
 # Data Prep
@@ -67,24 +68,28 @@ inputGenerator <- function(dataset, vocabulary, config) {
 embeddingMatrix <- readRDS('matrix.RDS')
 
 # Model Definition
-model <- keras_model_sequential()
+if(is.null(FLAGS$continueFrom)) {
+    model <- keras_model_sequential()
 
-model %>%
-    layer_embedding(length(vocab$id) + 1, FLAGS$embeddingSize, 
-                    input_length = FLAGS$sequenceLengthWords, 
-                    mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
-    #layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
-    #           dropout = FLAGS$dropout1) %>%
-    layer_lstm(FLAGS$nHiddenLayers, 
-               dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2) %>%
-    layer_dense(length(vocab$id) + 1) %>%
-    layer_activation("softmax")
-
-model %>% compile(
-    loss = "sparse_categorical_crossentropy", 
-    optimizer = optimizer_nadam(lr = FLAGS$learningRate),
-    metrics = c('accuracy')
-)
+    model %>%
+        layer_embedding(length(vocab$id) + 1, FLAGS$embeddingSize, 
+                        input_length = FLAGS$sequenceLengthWords, 
+                        mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
+        #layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
+        #           dropout = FLAGS$dropout1) %>%
+        layer_lstm(FLAGS$nHiddenLayers, 
+                   dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2) %>%
+        layer_dense(length(vocab$id) + 1) %>%
+        layer_activation("softmax")
+    
+    model %>% compile(
+        loss = "sparse_categorical_crossentropy", 
+        optimizer = optimizer_nadam(lr = FLAGS$learningRate),
+        metrics = c('accuracy')
+    )
+} else {
+    model <- load_model_hdf5(FLAGS$continueFrom)
+}
 
 rm(embeddingMatrix)
 
