@@ -4,13 +4,13 @@ library(keras)
 use_virtualenv("~/.virtualenvs/r-tensorflow/")
 
 FLAGS <- flags(
-    flag_numeric("sequenceLengthWords", 7L),
+    flag_numeric("sequenceLengthWords", 8L),
     flag_numeric("strideStep", 1L),
     flag_numeric("embeddingSize", 200L),
     flag_numeric("nHiddenLayers", 200L),
     flag_numeric("learningRate", 0.002),
-    flag_numeric("nEpochs", 10),
-    flag_numeric("lrDecay", 0.9),
+    flag_numeric("nEpochs", 20),
+    flag_numeric("lrDecay", 0.5),
     flag_numeric("lrMin", 0.0001),
     flag_numeric("decreaseLrPatience", 10),
     flag_numeric("dropout2", 0.1),
@@ -79,8 +79,8 @@ if(FLAGS$continueFrom == "FALSE") {
         #           dropout = FLAGS$dropout1) %>%
         layer_lstm(FLAGS$nHiddenLayers, 
                    dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2) %>%
-        layer_dense(length(vocab$id) + 1) %>%
         layer_batch_normalization() %>%
+        layer_dense(length(vocab$id) + 1) %>%
         layer_activation("softmax")
     
     model %>% compile(
@@ -115,7 +115,7 @@ for(i in 1:superBatches){
             validation_data = validationDataset,
             callbacks = list(
                 callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-                #callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
+                callback_reduce_lr_on_plateau(monitor = "loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
                 callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
                 #callback_early_stopping(monitor = "val_loss", patience = 10)
             ))
