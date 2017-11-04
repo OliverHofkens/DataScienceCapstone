@@ -9,15 +9,15 @@ FLAGS <- flags(
     flag_numeric("embeddingSize", 200L),
     flag_numeric("nHiddenLayers", 200L),
     flag_numeric("learningRate", 0.002),
-    flag_numeric("nEpochs", 10),
+    flag_numeric("nEpochs", 5),
     flag_numeric("lrDecay", 0.9),
     flag_numeric("lrMin", 0.0001),
     flag_numeric("decreaseLrPatience", 10),
     #flag_numeric("dropout1", 0),
     flag_numeric("dropout2", 0),
-    flag_numeric("sentencesPerBatch", 10000L),
-    flag_numeric("inputSentences", 100000L),
-    flag_numeric("validationSentences", 1000L)
+    flag_numeric("sentencesPerBatch", 250000L),
+    flag_numeric("inputSentences", 2500000L),
+    flag_numeric("validationSentences", 2500L)
 )
 
 # Data Prep
