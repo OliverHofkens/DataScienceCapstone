@@ -13,7 +13,7 @@ predictOnText <- function(model, vocab, word_vector){
     predictions['word'] <- getWordForId(vocab, predictions[,'id'])
     
     predictions[predictions['word'] == '<eos>', 'word'] = "./!/?"
-    predictions[predictions['word'] == '<unk>', 'word'] = "<unknown word>"
+    predictions[predictions['word'] == '<unk>', 'word'] = "Out of Vocabulary"
     
     predictions
 }
