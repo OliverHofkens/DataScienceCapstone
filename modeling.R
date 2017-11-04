@@ -18,7 +18,7 @@ FLAGS <- flags(
     flag_numeric("inputSentences", 1000000L),
     flag_numeric("validationSentences", 1000L),
     flag_numeric("batchSize", 64),
-    flag_string("continueFrom", NULL)
+    flag_string("continueFrom", FALSE)
 )
 
 # Data Prep
@@ -68,7 +68,7 @@ inputGenerator <- function(dataset, vocabulary, config) {
 embeddingMatrix <- readRDS('matrix.RDS')
 
 # Model Definition
-if(is.null(FLAGS$continueFrom)) {
+if(FLAGS$continueFrom == "FALSE") {
     model <- keras_model_sequential()
 
     model %>%
@@ -80,6 +80,7 @@ if(is.null(FLAGS$continueFrom)) {
         layer_lstm(FLAGS$nHiddenLayers, 
                    dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2) %>%
         layer_dense(length(vocab$id) + 1) %>%
+        layer_batch_normalization() %>%
         layer_activation("softmax")
     
     model %>% compile(
