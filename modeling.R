@@ -18,7 +18,7 @@ FLAGS <- flags(
     flag_numeric("sentencesPerBatch", 100000L),
     flag_numeric("inputSentences", 1000000L),
     flag_numeric("validationSentences", 1000L),
-    flag_numeric("batchSize", 32),
+    flag_numeric("batchSize", 64),
     flag_string("continueFrom", FALSE)
 )
 
