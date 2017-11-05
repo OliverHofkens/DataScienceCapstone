@@ -8,7 +8,7 @@ FLAGS <- flags(
     flag_numeric("strideStep", 1L),
     flag_numeric("embeddingSize", 200L),
     flag_numeric("nHiddenLayers", 200L),
-    flag_numeric("learningRate", 0.01),
+    flag_numeric("learningRate", 0.002),
     flag_numeric("nEpochs", 20),
     flag_numeric("lrDecay", 0.5),
     flag_numeric("lrMin", 0.001),
@@ -77,10 +77,7 @@ if(FLAGS$continueFrom == "FALSE") {
                         input_length = FLAGS$sequenceLengthWords, 
                         mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
         layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
-                   dropout = FLAGS$dropout1, recurrent_dropout = FLAGS$dropout1,
-                   activation = NULL) %>%
-        layer_batch_normalization() %>%
-        layer_activation("tanh") %>%
+                   dropout = FLAGS$dropout1, recurrent_dropout = FLAGS$dropout1) %>%
         layer_lstm(FLAGS$nHiddenLayers, 
                    dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2,
                    activation = NULL) %>%
