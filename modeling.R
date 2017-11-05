@@ -8,16 +8,17 @@ FLAGS <- flags(
     flag_numeric("strideStep", 1L),
     flag_numeric("embeddingSize", 200L),
     flag_numeric("nHiddenLayers", 200L),
-    flag_numeric("learningRate", 0.002),
+    flag_numeric("learningRate", 0.01),
     flag_numeric("nEpochs", 20),
     flag_numeric("lrDecay", 0.5),
-    flag_numeric("lrMin", 0.0001),
-    flag_numeric("decreaseLrPatience", 10),
+    flag_numeric("lrMin", 0.001),
+    flag_numeric("decreaseLrPatience", 3),
+    flag_numeric("dropout1", 0.1),
     flag_numeric("dropout2", 0.1),
     flag_numeric("sentencesPerBatch", 100000L),
     flag_numeric("inputSentences", 1000000L),
     flag_numeric("validationSentences", 1000L),
-    flag_numeric("batchSize", 64),
+    flag_numeric("batchSize", 32),
     flag_string("continueFrom", FALSE)
 )
 
@@ -75,12 +76,18 @@ if(FLAGS$continueFrom == "FALSE") {
         layer_embedding(length(vocab$id) + 1, FLAGS$embeddingSize, 
                         input_length = FLAGS$sequenceLengthWords, 
                         mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
-        #layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
-        #           dropout = FLAGS$dropout1) %>%
-        layer_lstm(FLAGS$nHiddenLayers, 
-                   dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2) %>%
+        layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
+                   dropout = FLAGS$dropout1, recurrent_dropout = FLAGS$dropout1,
+                   activation = NULL) %>%
         layer_batch_normalization() %>%
+        layer_activation("tanh") %>%
+        layer_lstm(FLAGS$nHiddenLayers, 
+                   dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2,
+                   activation = NULL) %>%
+        layer_batch_normalization() %>%
+        layer_activation("tanh") %>%
         layer_dense(length(vocab$id) + 1) %>%
+        layer_batch_normalization() %>%
         layer_activation("softmax")
     
     model %>% compile(
