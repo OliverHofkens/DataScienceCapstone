@@ -79,12 +79,8 @@ if(FLAGS$continueFrom == "FALSE") {
         layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
                    dropout = FLAGS$dropout1, recurrent_dropout = FLAGS$dropout1) %>%
         layer_lstm(FLAGS$nHiddenLayers, 
-                   dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2,
-                   activation = NULL) %>%
-        layer_batch_normalization() %>%
-        layer_activation("tanh") %>%
+                   dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2) %>%
         layer_dense(length(vocab$id) + 1) %>%
-        layer_batch_normalization() %>%
         layer_activation("softmax")
     
     model %>% compile(
@@ -119,7 +115,7 @@ for(i in 1:superBatches){
             validation_data = validationDataset,
             callbacks = list(
                 callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-                callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
+                callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin, verbose=TRUE),
                 callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
                 #callback_early_stopping(monitor = "val_loss", patience = 10)
             ))
