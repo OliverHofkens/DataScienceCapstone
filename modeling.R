@@ -122,7 +122,7 @@ for(i in 1:superBatches){
             validation_data = validationDataset,
             callbacks = list(
                 callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-                callback_reduce_lr_on_plateau(monitor = "loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
+                callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin),
                 callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
                 #callback_early_stopping(monitor = "val_loss", patience = 10)
             ))
