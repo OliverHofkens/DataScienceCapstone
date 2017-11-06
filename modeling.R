@@ -12,7 +12,7 @@ FLAGS <- flags(
     flag_numeric("nEpochs", 20),
     flag_numeric("lrDecay", 0.5),
     flag_numeric("lrMin", 0.001),
-    flag_numeric("decreaseLrPatience", 3),
+    flag_numeric("decreaseLrPatience", 5),
     flag_numeric("dropout1", 0.1),
     flag_numeric("dropout2", 0.1),
     flag_numeric("sentencesPerBatch", 100000L),
@@ -75,7 +75,8 @@ if(FLAGS$continueFrom == "FALSE") {
     model %>%
         layer_embedding(length(vocab$id) + 1, FLAGS$embeddingSize, 
                         input_length = FLAGS$sequenceLengthWords, 
-                        mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
+                        mask_zero = TRUE, weights = list(embeddingMatrix),
+                        trainable = FALSE) %>%
         layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
                    dropout = FLAGS$dropout1, recurrent_dropout = FLAGS$dropout1) %>%
         layer_lstm(FLAGS$nHiddenLayers, 
@@ -85,7 +86,7 @@ if(FLAGS$continueFrom == "FALSE") {
     
     model %>% compile(
         loss = "sparse_categorical_crossentropy", 
-        optimizer = optimizer_nadam(lr = FLAGS$learningRate),
+        optimizer = optimizer_nadam(lr = FLAGS$learningRate, clipnorm = 1),
         metrics = c('accuracy')
     )
 } else {
