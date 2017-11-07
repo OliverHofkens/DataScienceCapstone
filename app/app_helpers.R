@@ -1,10 +1,22 @@
 library(data.table)
 
-predictOnText <- function(model, vocab, word_vector){
-    ids <- getWordIds(vocab, word_vector)
+predictOnText <- function(model, vocab, text){
+    text <- tolower(text)
+    # replace punctuation and numbers:
+    text <- gsub("[][\"#$%&()*+/:;<=>@\\^_`{|}~\u201C\u201D\u00AB\u00BB\u00BD\u00B7\u2026\u0093\u0094\u0092\u0096\u0097\u2032\u2033\u00B4\u00A3\u2013]", " ", text)
+    text <- gsub("\\W['-]", " ", text)
+    text <- gsub("['-]\\W", " ", text)
+    text <- gsub("[+-]?[0-9]+[.,]?[0-9]*", " <num> ", text)
+    text <- gsub(",", " ", text)
+    text <- gsub("[.!?]+", " <eos> ", text)
+    
+    words <- unlist(strsplit(text, " ", fixed = TRUE))
+    words <- trimws(tail(words, n=8))
+    
+    ids <- getWordIds(vocab, words)
     
     # If we don't have 5 words yet, pad with 0 for embedding layer mask in model:
-    padLength = 7 - length(ids)
+    padLength = 8 - length(ids)
     if(padLength > 0){
         ids <- c(rep.int(0, padLength), ids)
     }

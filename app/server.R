@@ -10,11 +10,7 @@ vocab <- readRDS('model/vocab.RDS')
 
 shinyServer(function(input, output) {
     output$predictions <- renderText({
-        text <- tolower(input$text_input)
-        words <- unlist(strsplit(text, " ", fixed = TRUE))
-        words <- tail(words, n=7)
-        
-        prediction <- predictOnText(model, vocab, words)
+        prediction <- predictOnText(model, vocab, input$text_input)
         
         apply(prediction, 1, function(pred){
             pct <- as.numeric(pred['prob']) * 100
