@@ -12,14 +12,17 @@ FLAGS <- flags(
     flag_numeric("nEpochs", 20),
     flag_numeric("lrDecay", 0.5),
     flag_numeric("lrMin", 0.001),
-    flag_numeric("decreaseLrPatience", 2),
+    flag_numeric("decreaseLrPatience", 4),
     flag_numeric("dropout1", 0.1),
     flag_numeric("dropout2", 0.1),
-    flag_numeric("sentencesPerBatch", 100000L),
-    flag_numeric("inputSentences", 1000000L),
+    flag_numeric("sentencesPerBatch", 10000L),
+    flag_numeric("inputSentences", 100000L),
     flag_numeric("validationSentences", 1000L),
     flag_numeric("batchSize", 64),
-    flag_string("continueFrom", FALSE)
+    flag_string("continueFrom", FALSE),
+    flag_boolean("trainEmbedding", FALSE),
+    flag_string("weights", FALSE),
+    flag_numeric("startSuperEpoch", 1)
 )
 
 # Data Prep
@@ -75,21 +78,31 @@ if(FLAGS$continueFrom == "FALSE") {
     model %>%
         layer_embedding(length(vocab$id) + 1, FLAGS$embeddingSize, 
                         input_length = FLAGS$sequenceLengthWords, 
-                        mask_zero = TRUE, weights = list(embeddingMatrix)) %>%
+                        mask_zero = TRUE, weights = list(embeddingMatrix),
+                        trainable = FLAGS$trainEmbedding, 
+                        name = 'embedding') %>%
         layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
-                   dropout = FLAGS$dropout1, recurrent_dropout = FLAGS$dropout1) %>%
+                   dropout = FLAGS$dropout1, recurrent_dropout = FLAGS$dropout1,
+                   name = 'lstm-transfer-1') %>%
         layer_lstm(FLAGS$nHiddenLayers, 
-                   dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2) %>%
-        layer_dense(length(vocab$id) + 1) %>%
-        layer_activation("softmax")
+                   dropout = FLAGS$dropout2, recurrent_dropout = FLAGS$dropout2,
+                   name = 'lstm-last') %>%
+        layer_dense(length(vocab$id) + 1,
+                    name = 'dense') %>%
+        layer_activation("softmax",
+                         name = 'activator')
     
     model %>% compile(
         loss = "sparse_categorical_crossentropy", 
         optimizer = optimizer_nadam(lr = FLAGS$learningRate, clipnorm = 1),
-        metrics = c('accuracy')
+        metrics = c(top_k_acc = metric_sparse_top_k_categorical_accuracy)
     )
 } else {
     model <- load_model_hdf5(FLAGS$continueFrom)
+}
+
+if(FLAGS$weights != "FALSE"){
+    load_model_weights_hdf5(model, FLAGS$weights, by_name = TRUE)
 }
 
 rm(embeddingMatrix)
@@ -98,7 +111,7 @@ validationGen <- inputGenerator(validation, vocab, FLAGS)
 validationDataset <- validationGen()
 
 superBatches <- floor(length(train) / FLAGS$sentencesPerBatch) 
-for(i in 1:superBatches){
+for(i in FLAGS$startSuperEpoch:superBatches){
     cat(sprintf("\n\nSuperEpoch %d of %d\n\n",i,superBatches))
     startIndex <- ((i - 1) * FLAGS$sentencesPerBatch) + 1
     nextIndex <- startIndex + FLAGS$sentencesPerBatch - 1
@@ -114,12 +127,13 @@ for(i in 1:superBatches){
             epochs=FLAGS$nEpochs, 
             validation_data = validationDataset,
             callbacks = list(
-                callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5", save_best_only = TRUE),
-                callback_reduce_lr_on_plateau(monitor = "val_loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin, verbose=TRUE),
+                callback_model_checkpoint("model.{epoch:02d}-{val_top_k_acc:.2f}.hdf5", save_best_only = TRUE),
+                callback_reduce_lr_on_plateau(monitor = "top_k_acc",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin, verbose=TRUE),
                 callback_tensorboard(log_dir = "log", embeddings_freq = 5, embeddings_metadata = 'vocab.tsv')
                 #callback_early_stopping(monitor = "val_loss", patience = 10)
             ))
     
+    save_model_weights_hdf5(model, paste('keras_weights', i, '.h5', sep = ""))
     save_model_hdf5(model, paste('keras_model', i, '.h5', sep = ""), include_optimizer = TRUE)
     saveRDS(history, paste('history', i, '.rds', sep = ""))
 }
