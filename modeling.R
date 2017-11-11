@@ -33,6 +33,9 @@ validation <- inputs$validation[1:FLAGS$validationSentences]
 vocab <- inputs$vocabulary
 rm(inputs)
 
+classWeights <- as.list(c(0, vocab$weight))
+names(classWeights) <- seq.int(0, 10002)
+
 #write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
 inputGenerator <- function(dataset, vocabulary, config) {
@@ -135,6 +138,7 @@ for(i in FLAGS$startSuperEpoch:superBatches){
             batch_size=FLAGS$batchSize,
             epochs=FLAGS$nEpochs, 
             validation_data = validationDataset,
+            class_weight = classWeights,
             callbacks = list(
                 callback_model_checkpoint("model.{epoch:02d}-{val_top_k_acc:.2f}.hdf5", save_best_only = TRUE),
                 callback_reduce_lr_on_plateau(monitor = "top_k_acc",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin, verbose=TRUE),

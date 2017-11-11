@@ -23,10 +23,16 @@ buildDfm <- function(filename){
 # Build a vocabulary dictionary consisting of word -> ID
 buildVocab <- function(filename){
     freq <- buildDfm(filename)
-    table <- as.data.table(freq)
-    words <- as.data.table(colnames(table))
-    words <- cbind(words, (as.integer(rownames(words)))) # Subtract 1 for zero-based indexing
-    colnames(words) <- c('word', 'id')
+    # Calculate frequencey weights to use when training:
+    wt <- dfm_weight(freq, type = "relmaxfreq")
+    weights <- as.data.table(t(wt))
+    # Invert the weights, so the most frequent word has the lowest weight
+    # Then take the log to compress the space
+    weights$text1 <- log(1 / weights$text1 + 0.1)
+    
+    words <- as.data.table(colnames(wt))
+    words <- cbind(words, as.integer(rownames(words)), weights)
+    colnames(words) <- c('word', 'id', 'weight')
     setkey(words, word, id)
     words
 }
