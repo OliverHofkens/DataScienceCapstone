@@ -5,12 +5,13 @@ library(data.table)
 
 source("app_helpers.R")
 
-model <- load_model_hdf5('model/model.hdf5')
+model <- load_model_hdf5('model/model.hdf5', custom_objects = c(top_k_acc=sparse_top_k_cat_acc))
 vocab <- readRDS('model/vocab.RDS')
+
 
 shinyServer(function(input, output) {
     output$predictions <- renderText({
-        prediction <- predictOnText(model, vocab, input$text_input)
+        prediction <- predictOnText(model, vocab, input$text_input, input$sampling_temp / 100)
         
         apply(prediction, 1, function(pred){
             pct <- as.numeric(pred['prob']) * 100

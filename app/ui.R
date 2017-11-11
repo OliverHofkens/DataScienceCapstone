@@ -14,6 +14,7 @@ shinyUI(fluidPage(theme = "style.css",
       conditionalPanel(
           condition="output.predictions",
           textAreaInput('text_input', NULL),
+          sliderInput('sampling_temp', "CREATIVE FREEDOM BOOSTER", 0, 100, value = 0, step = 10, post = "%"),
           htmlOutput('predictions', container = tags$ul, class = "pred-list")
       )
     ),
