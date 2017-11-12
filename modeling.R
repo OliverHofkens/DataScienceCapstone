@@ -33,8 +33,8 @@ validation <- inputs$validation[1:FLAGS$validationSentences]
 vocab <- inputs$vocabulary
 rm(inputs)
 
-classWeights <- as.list(c(0, vocab$weight))
-names(classWeights) <- seq.int(0, 10002)
+#classWeights <- as.list(c(0, vocab$weight))
+#names(classWeights) <- seq.int(0, 10002)
 
 #write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
@@ -47,8 +47,11 @@ inputGenerator <- function(dataset, vocabulary, config) {
     function() {
         resultsPerSentence <- sapply(dataset, function(sentence){
             endIndexOfLastBatch <- length(sentence) - 1L
-            sapply(seq.int(1, endIndexOfLastBatch, by=stride), function(i){
+            
+            perSentence <- sapply(seq.int(1, endIndexOfLastBatch, by=stride), function(i){
                 # Start at current index minus seqLength, or 1 if not enough words.
+                pred <- sentence[i + 1]
+                
                 from <- max(i - seqLength + 1, 1)
                 batch <- sentence[from:i]
                 # Pad batch with 0 if not long enough:
@@ -56,7 +59,7 @@ inputGenerator <- function(dataset, vocabulary, config) {
                 if(padSize > 0){
                     batch <- c(rep.int(0, padSize), batch)
                 }
-                pred <- sentence[i + 1]
+                
                 list(batch, pred)
             })
         })
@@ -67,7 +70,13 @@ inputGenerator <- function(dataset, vocabulary, config) {
         X <- matrix(unlist(X), ncol = seqLength, byrow = TRUE)
         
         Y <- as.integer(resultsPerSentence[seq.int(2, length(resultsPerSentence), by = 2)])
+        
+        # Downsample based on frequency:
+        dropChances <- vocabulary[Y, 'drop_chance']
+        drops <- as.logical(rbinom(length(dropChances$drop_chance), 1, dropChances$drop_chance))
 
+        X <- X[!drops,]
+        Y <- Y[!drops]
         
         return(list(X,Y))
     }
@@ -78,6 +87,7 @@ embeddingMatrix <- readRDS('matrix.RDS')
 sparse_top_k_cat_acc <- function(y_pred, y_true){
     metric_sparse_top_k_categorical_accuracy(y_pred, y_true, k = FLAGS$topKMetric)
 }
+attr(sparse_top_k_cat_acc, "py_function_name") <- "sparse_top_k_cat_acc"
 
 # Model Definition
 if(FLAGS$continueFrom == "FALSE") {
@@ -103,8 +113,7 @@ if(FLAGS$continueFrom == "FALSE") {
     
     model %>% compile(
         loss = "sparse_categorical_crossentropy", 
-        optimizer = optimizer_nadam(lr = FLAGS$learningRate#, clipnorm = 1
-                                    ),
+        optimizer = optimizer_nadam(lr = FLAGS$learningRate),
         metrics = c(top_k_acc = sparse_top_k_cat_acc)
     )
 } else {
@@ -138,7 +147,7 @@ for(i in FLAGS$startSuperEpoch:superBatches){
             batch_size=FLAGS$batchSize,
             epochs=FLAGS$nEpochs, 
             validation_data = validationDataset,
-            class_weight = classWeights,
+            #éclass_weight = classWeights,
             callbacks = list(
                 callback_model_checkpoint("model.{epoch:02d}-{val_top_k_acc:.2f}.hdf5", save_best_only = TRUE),
                 callback_reduce_lr_on_plateau(monitor = "top_k_acc",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin, verbose=TRUE),
