@@ -29,11 +29,12 @@ buildVocab <- function(filename){
     # Invert the weights, so the most frequent word has the lowest weight
     # Then take the log to compress the space
     weights$text1 <- 1 / weights$text1
-    weights[weights$text1 < 1,] <- 1
+    # Rescale the weights so they don't go completely out of control:
+    weights$text1 <- log(weights$text1 + 0.1)
     
     # If we want to implement under-sampling, base the chance to drop on the inverse frequency of the word
     # We add a minor bias so we don't drop 100% of the common words
-    chanceToDrop <- 1 / (weights$text1 + 0.01)
+    chanceToDrop <- 1 / (exp(weights$text1))
     
     words <- as.data.table(colnames(wt))
     words <- cbind(words, as.integer(rownames(words)), weights, chanceToDrop)
