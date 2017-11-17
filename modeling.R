@@ -17,9 +17,9 @@ FLAGS <- flags(
     flag_numeric("sentencesPerBatch", 30000L),
     flag_numeric("inputSentences", 30000L),
     flag_numeric("validationSentences", 3000L),
-    flag_numeric("batchSize", 64),
+    flag_numeric("batchSize", 256),
     flag_string("continueFrom", FALSE),
-    flag_boolean("trainEmbedding", FALSE),
+    flag_boolean("trainEmbedding", TRUE),
     flag_string("weights", FALSE),
     flag_numeric("startSuperEpoch", 1),
     flag_numeric("topKMetric", 3)

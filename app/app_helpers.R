@@ -86,6 +86,7 @@ sampleMod <- function(preds, temperature = 1, n = 5){
     rmultinom(1, n, preds)
 }
 
-sparse_top_k_cat_acc <- function(y_pred, y_true){
+sparse_top_3_acc <- function(y_pred, y_true){
     metric_sparse_top_k_categorical_accuracy(y_pred, y_true, k = 3)
 }
+attr(sparse_top_3_acc, "py_function_name") <- "top_3_acc"

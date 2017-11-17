@@ -5,7 +5,7 @@ library(data.table)
 
 source("app_helpers.R")
 
-model <- load_model_hdf5('model/model.hdf5', custom_objects = c(top_k_acc=sparse_top_k_cat_acc))
+model <- load_model_hdf5('model/model.h5', custom_objects = c(top_3_acc=sparse_top_3_acc))
 vocab <- readRDS('model/vocab.RDS')
 
 
