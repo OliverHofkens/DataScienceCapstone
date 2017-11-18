@@ -32,8 +32,8 @@ validation <- inputs$validation[1:FLAGS$validationSentences]
 vocab <- inputs$vocabulary
 rm(inputs)
 
-#classWeights <- as.list(c(0, vocab$weight))
-#names(classWeights) <- seq.int(0, 10002)
+classWeights <- as.list(c(0, vocab$weight))
+names(classWeights) <- seq.int(0, 10002)
 
 #write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
@@ -145,7 +145,7 @@ for(i in FLAGS$startSuperEpoch:superBatches){
             batch_size=FLAGS$batchSize,
             epochs=FLAGS$nEpochs, 
             validation_data = validationDataset,
-            #class_weight = classWeights,
+            class_weight = classWeights,
             callbacks = list(
                 callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5"),
                 callback_reduce_lr_on_plateau(monitor = "loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin, verbose=TRUE),
