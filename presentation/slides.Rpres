@@ -1,0 +1,38 @@
+Real-time contextual word predictions with Recurrent Neural Networks 
+========================================================
+author: Oliver Hofkens
+date: 17/11/2017
+autosize: true
+
+Technology
+========================================================
+
+- **Recurrent Neural Network** based on long short-term memory cells
+- Learning is not limited to n-gram frequency
+    - => Learns from **sentence context** and **word meaning**
+- Trained with **state-of-the-art** techniques, including:
+    - Global Vectors for Word Representation *(Pennington et al, 2014)*
+    - Recurrent Dropout *(Gal & Ghahramani, 2016)*
+    - ADAM with Nesterov Momentum *(Dozat, 2016)*
+    - Optimal Hyperparameters for Deep LSTM Sequence Labeling *(Reimers & Gurevych, 2017)*
+    
+
+Performance
+========================================================
+
+- Mobile-friendly
+    - Computationally efficient
+    - Complete model comes in sizes of 20 to 60 MB, depending on required complexity
+
+
+Usage
+========================================================
+
+<div style="text-align:center;">
+    <img src="./screenshot.png" width="1000"  />
+</div>
+
+- Predictions update in real-time as you type
+- More probable predictions are highlighted, while lower probabilities fade away
+- The **Creative Freedom Booster** adds a variable amount of random sampling to the predictions
+    - Makes the model more dynamic
