@@ -3,6 +3,10 @@ library(tensorflow)
 library(keras)
 library(data.table)
 
+if(!is_keras_available()){
+    install_keras()
+}
+
 source("app_helpers.R")
 
 model <- load_model_hdf5('model/model.h5', custom_objects = c(top_3_acc=sparse_top_3_acc))

@@ -13,7 +13,7 @@ FLAGS <- flags(
     flag_numeric("lrDecay", 0.5),
     flag_numeric("lrMin", 0.0001),
     flag_numeric("decreaseLrPatience", 3),
-    flag_numeric("dropout", 0.25),
+    flag_numeric("dropout", 0.3),
     flag_numeric("sentencesPerBatch", 30000L),
     flag_numeric("inputSentences", 30000L),
     flag_numeric("validationSentences", 3000L),
@@ -32,8 +32,8 @@ validation <- inputs$validation[1:FLAGS$validationSentences]
 vocab <- inputs$vocabulary
 rm(inputs)
 
-classWeights <- as.list(c(0, vocab$weight))
-names(classWeights) <- seq.int(0, 10002)
+#classWeights <- as.list(c(0, vocab$weight))
+#names(classWeights) <- seq.int(0, 10002)
 
 #write.table(vocab, file='vocab.tsv', quote=FALSE, sep='\t', row.names = FALSE)
 
@@ -98,8 +98,8 @@ if(FLAGS$continueFrom == "FALSE") {
                         mask_zero = TRUE, weights = list(embeddingMatrix),
                         trainable = FLAGS$trainEmbedding, 
                         name = 'embedding') %>%
-        layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
-                   name = 'lstm-transfer-1') %>%
+#        layer_lstm(FLAGS$nHiddenLayers, return_sequences = TRUE, 
+#                   name = 'lstm-transfer-1') %>%
         layer_lstm(FLAGS$nHiddenLayers, 
                    dropout = FLAGS$dropout, recurrent_dropout = FLAGS$dropout,
                    name = 'lstm-last') %>%
@@ -112,7 +112,7 @@ if(FLAGS$continueFrom == "FALSE") {
     model %>% compile(
         loss = "sparse_categorical_crossentropy", 
         optimizer = optimizer_nadam(lr = FLAGS$learningRate),
-        metrics = c(top_3_acc = sparse_top_3_acc)
+        metrics = c(acc = 'accuracy', top_3_acc = sparse_top_3_acc)
     )
 } else {
     model <- load_model_hdf5(FLAGS$continueFrom, custom_objects=c(top_3_acc=sparse_top_3_acc))
@@ -145,7 +145,7 @@ for(i in FLAGS$startSuperEpoch:superBatches){
             batch_size=FLAGS$batchSize,
             epochs=FLAGS$nEpochs, 
             validation_data = validationDataset,
-            class_weight = classWeights,
+#            class_weight = classWeights,
             callbacks = list(
                 callback_model_checkpoint("model.{epoch:02d}-{val_loss:.2f}.hdf5"),
                 callback_reduce_lr_on_plateau(monitor = "loss",factor = FLAGS$lrDecay, patience = FLAGS$decreaseLrPatience, min_lr = FLAGS$lrMin, verbose=TRUE),

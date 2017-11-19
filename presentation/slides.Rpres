@@ -23,7 +23,11 @@ Performance
 - Mobile-friendly
     - Computationally efficient
     - Complete model comes in sizes of 20 to 60 MB, depending on required complexity
-
+- However, stats are pretty dissapointing...
+    - Accuracy of ~25%, Top-3 accuracy of ~35% on test set of 1M samples
+    - Reason: No access to GPU, not enough time for finetuning of hyperparameters.
+    - Should theoretically perform way better given enough training time.
+    
 
 Usage
 ========================================================
@@ -36,3 +40,11 @@ Usage
 - More probable predictions are highlighted, while lower probabilities fade away
 - The **Creative Freedom Booster** adds a variable amount of random sampling to the predictions
     - Makes the model more dynamic
+    
+
+Next Steps
+=========================================================
+
+- Get access to a GPU-equipped machine for faster training
+- Tune hyperparameters either manually or with methods such as Grid Search
+- Blow away the competition
